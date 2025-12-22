@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>لوحة الأدمن</title>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="brand">
+      <div class="logo"></div>
+      <div>
+        <h1>لوحة الأدمن</h1>
+        <p class="small">إدارة الإعلانات – الشحن – السحب</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="notice warn" style="display:block">
+        ⚠️ هذه الصفحة للأدمن فقط. إذا ما اشتغلت معك، لازم تضيف حسابك كأدمن في Supabase.
+      </div>
+    </div>
+
+    <!-- إضافة إعلان -->
+    <div class="card">
+      <h3 style="margin:0 0 8px">إضافة إعلان جديد</h3>
+
+      <label>عنوان الإعلان</label>
+      <input id="adTitle" type="text" placeholder="مثال: إعلان يوتيوب" />
+
+      <div style="height:10px"></div>
+
+      <label>رابط يوتيوب</label>
+      <input id="adUrl" type="text" placeholder="https://youtube.com/..." />
+
+      <div style="height:10px"></div>
+
+      <label>عدد النقاط</label>
+      <input id="adPoints" type="number" value="3" min="1" />
+
+      <div style="height:12px"></div>
+
+      <button id="addAdBtn" class="btn btn-primary">إضافة الإعلان</button>
+    </div>
+
+    <!-- طلبات الشحن -->
+    <div class="card">
+      <h3 style="margin:0 0 8px">طلبات الشحن (قيد الانتظار)</h3>
+      <div id="depositsList" class="small">...</div>
+    </div>
+
+    <!-- طلبات السحب -->
+    <div class="card">
+      <h3 style="margin:0 0 8px">طلبات السحب (قيد الانتظار)</h3>
+      <div id="withdrawalsList" class="small">...</div>
+    </div>
+
+    <div class="card">
+      <a class="btn btn-ghost" href="dashboard.html">رجوع للوحة المستخدم</a>
+    </div>
+  </div>
+
+  <script type="module">
+    import { supabase } from "./assets/supabaseClient.js";
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      window.location.href = "login.html";
+    }
+
+    // ======================
+    // إضافة إعلان
+    // ======================
+    document.getElementById("addAdBtn").addEventListener("click", async () => {
+      const title = document.getElementById("adTitle").value.trim();
+      const url = document.getElementById("adUrl").value.trim();
+      const points = Number(document.getElementById("adPoints").value);
+
+      if (!title || !url || !points) {
+        alert("تأكد من إدخال جميع البيانات");
+        return;
+      }
+
+      const { error } = await supabase.from("ads").insert({
+        title,
+        youtube_url: url,
+        reward_points: points,
+        is_active: true
+      });
+
+      if (error) {
+        alert(error.message);
+      } else {
+        alert("تم إضافة الإعلان بنجاح");
+        document.getElementById("adTitle").value = "";
+        document.getElementById("adUrl").value = "";
+        document.getElementById("adPoints").value = 3;
+        loadDeposits();
+        loadWithdrawals();
+      }
+    });
+
+    // ======================
+    // تحميل طلبات الشحن
+    // ======================
+    async function loadDeposits() {
+      const box = document.getElementById("depositsList");
+      const { data,
