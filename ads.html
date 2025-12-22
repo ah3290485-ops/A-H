@@ -1,86 +1,84 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>الإعلانات</title>
   <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
-  <div class="container">
-    <div class="brand">
-      <div class="logo"></div>
-      <div>
-        <h1>الإعلانات</h1>
-        <p class="small">شاهد إعلان واحصل على نقاط</p>
-      </div>
-    </div>
 
-    <div class="card">
-      <div class="row">
-        <div>
-          <div class="small">رصيدك الحالي</div>
-          <div id="points" style="font-size:26px;font-weight:800">0</div>
-        </div>
-        <div>
-          <div class="badge warn">إعلان = 3 نقاط</div>
-        </div>
-      </div>
-    </div>
-
-    <div id="adsList"></div>
-
-    <div class="card">
-      <a class="btn btn-ghost" href="dashboard.html">رجوع للوحة التحكم</a>
+<div class="container">
+  <div class="brand">
+    <div class="logo"></div>
+    <div>
+      <h1>الإعلانات</h1>
+      <p class="small">شاهد الإعلان واحصل على نقاط</p>
     </div>
   </div>
 
-  <script type="module">
-    import { supabase } from "./assets/supabaseClient.js";
+  <div id="adsList"></div>
+</div>
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) window.location.href = "login.html";
+<nav class="bottom-nav">
+  <div class="nav-wrap">
+    <a class="nav-item" href="dashboard.html">🏠<div>الرئيسية</div></a>
+    <a class="nav-item active" href="ads.html">📺<div>الإعلانات</div></a>
+    <a class="nav-item" href="wallet.html">👛<div>محفظتي</div></a>
+    <a class="nav-item" href="profile.html">👤<div>الملف الشخصي</div></a>
+  </div>
+</nav>
 
-    // جلب النقاط
-    const { data: wallet } = await supabase
-      .from("wallets")
-      .select("points")
-      .eq("user_id", user.id)
-      .single();
+<script type="module">
+import { supabase } from "./assets/supabaseClient.js";
 
-    if (wallet) {
-      document.getElementById("points").innerText = wallet.points;
-    }
+const { data: { user } } = await supabase.auth.getUser();
+if (!user) window.location.href = "login.html";
 
-    // جلب الإعلانات
-    const { data: ads } = await supabase
-      .from("ads")
-      .select("*")
-      .eq("is_active", true);
+// جلب الإعلانات المفعلة
+const { data: ads } = await supabase
+  .from("ads")
+  .select("*")
+  .eq("is_active", true);
 
-    const list = document.getElementById("adsList");
+const box = document.getElementById("adsList");
 
-    if (!ads || ads.length === 0) {
-      list.innerHTML = `
-        <div class="card">
-          <p class="small">لا توجد إعلانات حالياً</p>
-        </div>
-      `;
-    } else {
-      ads.forEach(ad => {
-        const card = document.createElement("div");
-        card.className = "card";
+if (!ads || ads.length === 0) {
+  box.innerHTML = "<div class='card'>لا يوجد إعلانات حالياً</div>";
+} else {
+  ads.forEach(ad => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <h3>${ad.title}</h3>
+      <a class="btn btn-ghost" target="_blank" href="${ad.youtube_url}">
+        ▶️ مشاهدة الإعلان
+      </a>
+      <div style="height:10px"></div>
+      <button class="btn btn-primary">أخذ ${ad.reward_points} نقاط</button>
+    `;
 
-        card.innerHTML = `
-          <h3 style="margin:0">${ad.title}</h3>
-          <p class="small">شاهد الإعلان ثم اضغط زر أخذ النقاط</p>
-          <a class="btn btn-ghost" target="_blank" href="${ad.youtube_url}">
-            مشاهدة الإعلان
-          </a>
-          <div style="height:10px"></div>
-          <button class="btn btn-primary">أخذ النقاط</button>
-        `;
+    card.querySelector("button").onclick = async () => {
+      // زيادة النقاط
+      const { data: wallet } = await supabase
+        .from("wallets")
+        .select("points")
+        .eq("user_id", user.id)
+        .single();
 
-        card.querySelector("button").addEventListener("click", async () => {
-          // تحديث النقاط
-          const newPoints =
+      await supabase
+        .from("wallets")
+        .update({ points: wallet.points + ad.reward_points })
+        .eq("user_id", user.id);
+
+      alert("تم إضافة النقاط ✅");
+      location.reload();
+    };
+
+    box.appendChild(card);
+  });
+}
+</script>
+
+</body>
+</html>
