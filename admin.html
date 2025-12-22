@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>لوحة الإدارة</title>
+  <title>لوحة الأدمن</title>
   <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
@@ -17,8 +17,9 @@
     </div>
   </div>
 
+  <!-- إضافة إعلان -->
   <div class="card">
-    <h3>إضافة إعلان</h3>
+    <h3>➕ إضافة إعلان</h3>
 
     <label>عنوان الإعلان</label>
     <input id="adTitle" type="text" placeholder="مثال: إعلان يوتيوب">
@@ -33,14 +34,22 @@
     <button id="addAdBtn" class="btn btn-primary">إضافة الإعلان</button>
   </div>
 
+  <!-- الإعلانات -->
   <div class="card">
-    <h3>طلبات الشحن</h3>
-    <div id="deposits">تحميل...</div>
+    <h3>📺 الإعلانات</h3>
+    <div id="adsList" class="small">تحميل...</div>
   </div>
 
+  <!-- طلبات الشحن -->
   <div class="card">
-    <h3>طلبات السحب</h3>
-    <div id="withdrawals">تحميل...</div>
+    <h3>💳 طلبات الشحن</h3>
+    <div id="depositsList" class="small">تحميل...</div>
+  </div>
+
+  <!-- طلبات السحب -->
+  <div class="card">
+    <h3>💸 طلبات السحب</h3>
+    <div id="withdrawalsList" class="small">تحميل...</div>
   </div>
 
   <div class="card">
@@ -51,26 +60,18 @@
 <script type="module">
   import { supabase } from "./assets/supabaseClient.js";
 
-  // 🔐 إيميلات الأدمن (حط إيميلك فقط)
-  const ADMIN_EMAILS = [
-    "am.alsus1995@gmail.com"
-  ];
+  // 🔐 حماية الأدمن
+  const ADMIN_EMAILS = ["am.alsus1995@gmail.com"];
 
-  // تحقق من المستخدم
   const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    window.location.href = "login.html";
-  }
+  if (!user) window.location.href = "login.html";
 
   if (!ADMIN_EMAILS.includes(user.email)) {
-    alert("هذه الصفحة خاصة بالإدارة فقط");
+    alert("غير مصرح لك");
     window.location.href = "dashboard.html";
   }
 
-  // ======================
-  // إضافة إعلان
-  // ======================
+  // ================= إضافة إعلان =================
   document.getElementById("addAdBtn").onclick = async () => {
     const title = adTitle.value.trim();
     const url = adUrl.value.trim();
@@ -88,27 +89,52 @@
       is_active: true
     });
 
-    alert("تم إضافة الإعلان");
     adTitle.value = "";
     adUrl.value = "";
     adPoints.value = 3;
 
-    loadDeposits();
-    loadWithdrawals();
+    loadAds();
   };
 
-  // ======================
-  // تحميل طلبات الشحن
-  // ======================
-  async function loadDeposits() {
-    const box = document.getElementById("deposits");
-    const { data } = await supabase
-      .from("deposits")
-      .select("*")
-      .eq("status", "pending");
+  // ================= الإعلانات =================
+  async function loadAds() {
+    const box = document.getElementById("adsList");
+    const { data } = await supabase.from("ads").select("*").order("id",{ascending:false});
 
     if (!data || data.length === 0) {
-      box.innerHTML = "<p class='small'>لا يوجد طلبات</p>";
+      box.innerHTML = "لا يوجد إعلانات";
+      return;
+    }
+
+    box.innerHTML = "";
+    data.forEach(ad => {
+      const div = document.createElement("div");
+      div.innerHTML = `
+        <b>${ad.title}</b><br>
+        نقاط: ${ad.reward_points}<br>
+        الحالة: ${ad.is_active ? "مفعل" : "موقف"}<br>
+        <button class="btn btn-ghost">${ad.is_active ? "إيقاف" : "تفعيل"}</button>
+        <hr>
+      `;
+
+      div.querySelector("button").onclick = async () => {
+        await supabase.from("ads")
+          .update({ is_active: !ad.is_active })
+          .eq("id", ad.id);
+        loadAds();
+      };
+
+      box.appendChild(div);
+    });
+  }
+
+  // ================= الشحن =================
+  async function loadDeposits() {
+    const box = document.getElementById("depositsList");
+    const { data } = await supabase.from("deposits").select("*").eq("status","pending");
+
+    if (!data || data.length === 0) {
+      box.innerHTML = "لا يوجد طلبات";
       return;
     }
 
@@ -116,14 +142,14 @@
     data.forEach(d => {
       const div = document.createElement("div");
       div.innerHTML = `
-        <b>#${d.id}</b> — ${d.amount_usd}$<br>
+        ${d.amount_usd}$ – ${d.txid || "بدون TXID"}<br>
         <button class="btn btn-primary">موافقة</button>
         <hr>
       `;
 
       div.querySelector("button").onclick = async () => {
         await supabase.from("deposits")
-          .update({ status: "approved" })
+          .update({ status:"approved" })
           .eq("id", d.id);
 
         const { data: wallet } = await supabase
@@ -133,7 +159,7 @@
           .single();
 
         await supabase.from("wallets")
-          .update({ points: (wallet.points || 0) + d.amount_usd })
+          .update({ points:(wallet.points||0)+d.amount_usd })
           .eq("user_id", d.user_id);
 
         loadDeposits();
@@ -143,18 +169,13 @@
     });
   }
 
-  // ======================
-  // تحميل طلبات السحب
-  // ======================
+  // ================= السحب =================
   async function loadWithdrawals() {
-    const box = document.getElementById("withdrawals");
-    const { data } = await supabase
-      .from("withdrawals")
-      .select("*")
-      .eq("status", "pending");
+    const box = document.getElementById("withdrawalsList");
+    const { data } = await supabase.from("withdrawals").select("*").eq("status","pending");
 
     if (!data || data.length === 0) {
-      box.innerHTML = "<p class='small'>لا يوجد طلبات</p>";
+      box.innerHTML = "لا يوجد طلبات";
       return;
     }
 
@@ -162,16 +183,15 @@
     data.forEach(w => {
       const div = document.createElement("div");
       div.innerHTML = `
-        <b>#${w.id}</b> — ${w.points} نقطة<br>
+        ${w.points} نقطة – ${w.wallet_address}<br>
         <button class="btn btn-primary">تم الدفع</button>
         <hr>
       `;
 
       div.querySelector("button").onclick = async () => {
         await supabase.from("withdrawals")
-          .update({ status: "paid" })
+          .update({ status:"paid" })
           .eq("id", w.id);
-
         loadWithdrawals();
       };
 
@@ -179,6 +199,7 @@
     });
   }
 
+  loadAds();
   loadDeposits();
   loadWithdrawals();
 </script>
