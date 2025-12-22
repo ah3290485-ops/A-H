@@ -13,7 +13,7 @@
     <div class="logo"></div>
     <div>
       <h1>الإعلانات</h1>
-      <p class="small">شاهد الإعلان واحصل على نقاط</p>
+      <p class="small">يمكنك أخذ النقاط مرة واحدة كل 24 ساعة</p>
     </div>
   </div>
 
@@ -35,7 +35,7 @@ import { supabase } from "./assets/supabaseClient.js";
 const { data: { user } } = await supabase.auth.getUser();
 if (!user) window.location.href = "login.html";
 
-// جلب الإعلانات المفعلة
+// جلب الإعلانات
 const { data: ads } = await supabase
   .from("ads")
   .select("*")
@@ -46,37 +46,82 @@ const box = document.getElementById("adsList");
 if (!ads || ads.length === 0) {
   box.innerHTML = "<div class='card'>لا يوجد إعلانات حالياً</div>";
 } else {
-  ads.forEach(ad => {
+  for (const ad of ads) {
+
+    // جلب آخر مشاهدة
+    const { data: view } = await supabase
+      .from("ad_views")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("ad_id", ad.id)
+      .single();
+
+    let canClaim = true;
+    let msg = "";
+
+    if (view) {
+      const last = new Date(view.last_view);
+      const now = new Date();
+      const diffHours = (now - last) / (1000 * 60 * 60);
+
+      if (diffHours < 24) {
+        canClaim = false;
+        const remaining = Math.ceil(24 - diffHours);
+        msg = `يمكنك إعادة المحاولة بعد ${remaining} ساعة`;
+      }
+    }
+
     const card = document.createElement("div");
     card.className = "card";
+
     card.innerHTML = `
       <h3>${ad.title}</h3>
       <a class="btn btn-ghost" target="_blank" href="${ad.youtube_url}">
         ▶️ مشاهدة الإعلان
       </a>
       <div style="height:10px"></div>
-      <button class="btn btn-primary">أخذ ${ad.reward_points} نقاط</button>
+      <button class="btn btn-primary" ${!canClaim ? "disabled" : ""}>
+        ${canClaim ? "أخذ " + ad.reward_points + " نقاط" : msg}
+      </button>
     `;
 
-    card.querySelector("button").onclick = async () => {
-      // زيادة النقاط
-      const { data: wallet } = await supabase
-        .from("wallets")
-        .select("points")
-        .eq("user_id", user.id)
-        .single();
+    const btn = card.querySelector("button");
 
-      await supabase
-        .from("wallets")
-        .update({ points: wallet.points + ad.reward_points })
-        .eq("user_id", user.id);
+    if (canClaim) {
+      btn.onclick = async () => {
+        // إضافة نقاط
+        const { data: wallet } = await supabase
+          .from("wallets")
+          .select("points")
+          .eq("user_id", user.id)
+          .single();
 
-      alert("تم إضافة النقاط ✅");
-      location.reload();
-    };
+        await supabase
+          .from("wallets")
+          .update({ points: wallet.points + ad.reward_points })
+          .eq("user_id", user.id);
+
+        if (view) {
+          await supabase
+            .from("ad_views")
+            .update({ last_view: new Date() })
+            .eq("id", view.id);
+        } else {
+          await supabase
+            .from("ad_views")
+            .insert({
+              user_id: user.id,
+              ad_id: ad.id
+            });
+        }
+
+        alert("تم إضافة النقاط ✅");
+        location.reload();
+      };
+    }
 
     box.appendChild(card);
-  });
+  }
 }
 </script>
 
