@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>محفظتي</title>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="brand">
+      <div class="logo"></div>
+      <div>
+        <h1>محفظتي</h1>
+        <p class="small">شحن وسحب النقاط</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div>
+          <div class="small">رصيد النقاط</div>
+          <div id="points" style="font-size:28px;font-weight:800">0</div>
+        </div>
+        <div>
+          <div class="badge warn">1$ = 1 نقطة</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px">طلب شحن</h3>
+      <label>المبلغ بالدولار</label>
+      <input id="depAmount" type="number" min="1" placeholder="مثال: 100" />
+      <div style="height:10px"></div>
+      <label>TXID (اختياري)</label>
+      <input id="depTxid" type="text" placeholder="Transaction ID" />
+      <div style="height:12px"></div>
+      <button id="btnDeposit" class="btn btn-primary">إرسال طلب الشحن</button>
+      <p class="small" style="margin-top:10px">سيتم مراجعة الطلب من الإدارة.</p>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px">طلب سحب</h3>
+      <label>عدد النقاط</label>
+      <input id="wdPoints" type="number" min="1" placeholder="مثال: 50" />
+      <div style="height:10px"></div>
+      <label>عنوان المحفظة</label>
+      <input id="wdAddress" type="text" placeholder="عنوان محفظتك" />
+      <div style="height:12px"></div>
+      <button id="btnWithdraw" class="btn btn-ghost">إرسال طلب السحب</button>
+      <p class="small" style="margin-top:10px">السحب يتم يدوياً.</p>
+    </div>
+
+    <div class="card">
+      <a class="btn btn-ghost" href="dashboard.html">رجوع للوحة التحكم</a>
+    </div>
+  </div>
+
+  <script type="module">
+    import { supabase } from "./assets/supabaseClient.js";
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) window.location.href = "login.html";
+
+    // عرض الرصيد
+    const { data: wallet } = await supabase
+      .from("wallets")
+      .select("points")
+      .eq("user_id", user.id)
+      .single();
+
+    if (wallet) {
+      document.getElementById("points").innerText = wallet.points;
+    }
+
+    // طلب شحن
+    document.getElementById("btnDeposit").addEventListener("click", async () => {
+      const amount = Number(document.getElementById("depAmount").value);
+      const txid = document.getElementById("depTxid").value.trim();
+
+      if (!amount || amount <= 0) {
+        alert("أدخل مبلغ صحيح");
+        return;
+      }
+
+      await supabase.from("deposits").insert({
+        user_id: user.id,
+        amount_usd: amount,
+        txid,
+        status: "pending"
+      });
+
+      alert("تم إرسال طلب الشحن");
+      location.reload();
+    });
+
+    // طلب سحب
+    document.getElementById("btnWithdraw").addEventListener("click", async () => {
+      const points = Number(document.getElementById("wdPoints").value);
+      const address = document.getElementById("wdAddress").value.trim();
+
+      if (!points || points <= 0 || !address) {
+        alert("تأكد من البيانات");
+        return;
+      }
+
+      if (points > (wallet?.points || 0)) {
+        alert("رصيدك غير كافي");
+        return;
+      }
+
+      await supabase.from("withdrawals").insert({
+        user_id: user.id,
+        points,
+        wallet_address: address,
+        status: "pending"
+      });
+
+      alert("تم إرسال طلب السحب");
+      location.reload();
+    });
+  </script>
+</body>
+</html>
