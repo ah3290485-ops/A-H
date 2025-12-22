@@ -2,72 +2,74 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>إنشاء حساب</title>
   <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
-  <div class="container">
-    <div class="brand">
-      <div class="logo"></div>
-      <div>
-        <h1>إنشاء حساب جديد</h1>
-        <p>سجّل وابدأ بجمع النقاط</p>
-      </div>
-    </div>
 
-    <div class="card">
-      <label>الاسم (اختياري)</label>
-      <input id="name" type="text" placeholder="اسمك">
-
-      <div style="height:10px"></div>
-
-      <label>البريد الإلكتروني</label>
-      <input id="email" type="email" placeholder="example@email.com">
-
-      <div style="height:10px"></div>
-
-      <label>كلمة المرور</label>
-      <input id="password" type="password" placeholder="********">
-
-      <div style="height:15px"></div>
-
-      <button id="registerBtn" class="btn btn-primary">إنشاء الحساب</button>
-
-      <div style="height:10px"></div>
-
-      <a class="btn btn-ghost" href="login.html">عندي حساب</a>
+<div class="container">
+  <div class="brand">
+    <div class="logo"></div>
+    <div>
+      <h1>إنشاء حساب جديد</h1>
+      <p class="small">سجّل حسابك وابدأ</p>
     </div>
   </div>
 
-  <script type="module">
-    import { supabase } from "./assets/supabaseClient.js";
+  <div class="card">
+    <label>الاسم (اختياري)</label>
+    <input id="name" type="text" placeholder="اسمك">
 
-    document.getElementById("registerBtn").addEventListener("click", async () => {
-      const name = document.getElementById("name").value.trim();
-      const email = document.getElementById("email").value;
-      const password = document.getElementById("password").value;
+    <div style="height:10px"></div>
 
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password
-      });
+    <label>البريد الإلكتروني</label>
+    <input id="email" type="email" placeholder="example@email.com">
 
-      if (error) {
-        alert(error.message);
-        return;
+    <div style="height:10px"></div>
+
+    <label>كلمة المرور</label>
+    <input id="password" type="password" placeholder="********">
+
+    <div style="height:15px"></div>
+
+    <button id="registerBtn" class="btn btn-primary">إنشاء الحساب</button>
+
+    <div style="height:10px"></div>
+
+    <a class="btn btn-ghost" href="login.html">عندي حساب</a>
+  </div>
+</div>
+
+<script type="module">
+  import { supabase } from "./assets/supabaseClient.js";
+
+  document.getElementById("registerBtn").addEventListener("click", async () => {
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+
+    if (!email || !password) {
+      alert("يرجى إدخال الإيميل وكلمة المرور");
+      return;
+    }
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: window.location.origin + "/login.html"
       }
-
-      // إنشاء بروفايل ومحفظة للمستخدم
-      const user = data.user;
-      if (user) {
-        await supabase.from("profiles").insert({ id: user.id, full_name: name });
-        await supabase.from("wallets").insert({ user_id: user.id, points: 0 });
-      }
-
-      alert("تم إنشاء الحساب بنجاح");
-      window.location.href = "dashboard.html";
     });
-  </script>
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    alert("✅ تم إنشاء الحساب بنجاح\n📧 تفقد بريدك الإلكتروني وفعّل الحساب ثم سجّل دخول");
+    window.location.href = "login.html";
+  });
+</script>
+
 </body>
 </html>
