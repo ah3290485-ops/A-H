@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>الإعلانات</title>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="brand">
+      <div class="logo"></div>
+      <div>
+        <h1>الإعلانات</h1>
+        <p class="small">شاهد إعلان واحصل على نقاط</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div>
+          <div class="small">رصيدك الحالي</div>
+          <div id="points" style="font-size:26px;font-weight:800">0</div>
+        </div>
+        <div>
+          <div class="badge warn">إعلان = 3 نقاط</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="adsList"></div>
+
+    <div class="card">
+      <a class="btn btn-ghost" href="dashboard.html">رجوع للوحة التحكم</a>
+    </div>
+  </div>
+
+  <script type="module">
+    import { supabase } from "./assets/supabaseClient.js";
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) window.location.href = "login.html";
+
+    // جلب النقاط
+    const { data: wallet } = await supabase
+      .from("wallets")
+      .select("points")
+      .eq("user_id", user.id)
+      .single();
+
+    if (wallet) {
+      document.getElementById("points").innerText = wallet.points;
+    }
+
+    // جلب الإعلانات
+    const { data: ads } = await supabase
+      .from("ads")
+      .select("*")
+      .eq("is_active", true);
+
+    const list = document.getElementById("adsList");
+
+    if (!ads || ads.length === 0) {
+      list.innerHTML = `
+        <div class="card">
+          <p class="small">لا توجد إعلانات حالياً</p>
+        </div>
+      `;
+    } else {
+      ads.forEach(ad => {
+        const card = document.createElement("div");
+        card.className = "card";
+
+        card.innerHTML = `
+          <h3 style="margin:0">${ad.title}</h3>
+          <p class="small">شاهد الإعلان ثم اضغط زر أخذ النقاط</p>
+          <a class="btn btn-ghost" target="_blank" href="${ad.youtube_url}">
+            مشاهدة الإعلان
+          </a>
+          <div style="height:10px"></div>
+          <button class="btn btn-primary">أخذ النقاط</button>
+        `;
+
+        card.querySelector("button").addEventListener("click", async () => {
+          // تحديث النقاط
+          const newPoints =
