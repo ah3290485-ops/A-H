@@ -17,6 +17,7 @@
     </div>
   </div>
 
+  <!-- رصيد النقاط -->
   <div class="card">
     <div class="row">
       <div>
@@ -30,6 +31,22 @@
     </div>
   </div>
 
+  <!-- الأرباح -->
+  <div class="card">
+    <div class="row">
+      <div>
+        <div class="small">إجمالي الأرباح</div>
+        <div id="earnings" style="font-size:26px;font-weight:800;color:#44d17a">
+          0 $
+        </div>
+      </div>
+      <div>
+        <div class="badge">قابلة للسحب</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- أزرار -->
   <div class="card">
     <a class="btn btn-primary" href="ads.html">مشاهدة الإعلانات</a>
     <div style="height:10px"></div>
@@ -41,7 +58,7 @@
   </div>
 </div>
 
-<!-- ✅ شريط التنقل السفلي -->
+<!-- شريط التنقل السفلي -->
 <nav class="bottom-nav">
   <div class="nav-wrap">
     <a class="nav-item active" href="dashboard.html">
@@ -66,6 +83,7 @@
 <script type="module">
   import { supabase } from "./assets/supabaseClient.js";
 
+  // تحقق من تسجيل الدخول
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) window.location.href = "login.html";
 
@@ -79,12 +97,21 @@
     .single();
 
   if (!wallet) {
-    await supabase.from("wallets").insert({ user_id: user.id, points: 0 });
+    await supabase.from("wallets").insert({
+      user_id: user.id,
+      points: 0
+    });
     wallet = { points: 0 };
   }
 
+  // عرض النقاط
   document.getElementById("points").innerText = wallet.points;
 
+  // حساب الأرباح (1 نقطة = 1 دولار)
+  const earnings = Number(wallet.points || 0);
+  document.getElementById("earnings").innerText = earnings + " $";
+
+  // تسجيل خروج
   document.getElementById("logoutBtn").onclick = async () => {
     await supabase.auth.signOut();
     window.location.href = "login.html";
