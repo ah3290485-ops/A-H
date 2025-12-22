@@ -17,191 +17,181 @@
     </div>
   </div>
 
-  <!-- إضافة إعلان -->
-  <div class="card">
-    <h3>➕ إضافة إعلان</h3>
-
-    <label>عنوان الإعلان</label>
-    <input id="adTitle" type="text" placeholder="مثال: إعلان يوتيوب">
-
-    <label>رابط يوتيوب</label>
-    <input id="adUrl" type="text" placeholder="https://youtube.com/...">
-
-    <label>عدد النقاط</label>
-    <input id="adPoints" type="number" value="3">
-
-    <div style="height:10px"></div>
-    <button id="addAdBtn" class="btn btn-primary">إضافة الإعلان</button>
-  </div>
-
   <!-- الإعلانات -->
   <div class="card">
     <h3>📺 الإعلانات</h3>
-    <div id="adsList" class="small">تحميل...</div>
+    <div id="adsList">تحميل...</div>
   </div>
 
   <!-- طلبات الشحن -->
   <div class="card">
     <h3>💳 طلبات الشحن</h3>
-    <div id="depositsList" class="small">تحميل...</div>
+    <div id="depositsList">تحميل...</div>
   </div>
 
   <!-- طلبات السحب -->
   <div class="card">
     <h3>💸 طلبات السحب</h3>
-    <div id="withdrawalsList" class="small">تحميل...</div>
+    <div id="withdrawalsList">تحميل...</div>
   </div>
 
-  <div class="card">
-    <a href="dashboard.html" class="btn btn-ghost">رجوع للوحة المستخدم</a>
-  </div>
+  <a href="dashboard.html" class="btn btn-ghost">رجوع</a>
 </div>
 
 <script type="module">
-  import { supabase } from "./assets/supabaseClient.js";
+import { supabase } from "./assets/supabaseClient.js";
 
-  // 🔐 حماية الأدمن
-  const ADMIN_EMAILS = ["am.alsus1995@gmail.com"];
+/* =========================
+   حماية الأدمن
+========================= */
+const ADMIN_EMAILS = ["am.alsus1995@gmail.com"];
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) window.location.href = "login.html";
+const { data: { user } } = await supabase.auth.getUser();
+if (!user) window.location.href = "login.html";
+if (!ADMIN_EMAILS.includes(user.email)) {
+  alert("غير مصرح لك");
+  window.location.href = "dashboard.html";
+}
 
-  if (!ADMIN_EMAILS.includes(user.email)) {
-    alert("غير مصرح لك");
-    window.location.href = "dashboard.html";
+/* =========================
+   الإعلانات
+========================= */
+async function loadAds() {
+  const box = document.getElementById("adsList");
+  const { data } = await supabase.from("ads").select("*").order("id",{ascending:false});
+
+  if (!data || data.length === 0) {
+    box.innerHTML = "لا يوجد إعلانات";
+    return;
   }
 
-  // ================= إضافة إعلان =================
-  document.getElementById("addAdBtn").onclick = async () => {
-    const title = adTitle.value.trim();
-    const url = adUrl.value.trim();
-    const points = Number(adPoints.value);
+  box.innerHTML = "";
+  data.forEach(ad => {
+    const div = document.createElement("div");
+    div.innerHTML = `
+      <b>${ad.title}</b><br>
+      نقاط: ${ad.reward_points}<br>
+      الحالة: ${ad.is_active ? "مفعل" : "موقف"}<br>
+      <button class="btn btn-ghost">${ad.is_active ? "إيقاف" : "تفعيل"}</button>
+      <hr>
+    `;
 
-    if (!title || !url || !points) {
-      alert("أدخل جميع البيانات");
-      return;
-    }
+    div.querySelector("button").onclick = async () => {
+      await supabase.from("ads")
+        .update({ is_active: !ad.is_active })
+        .eq("id", ad.id);
+      loadAds();
+    };
 
-    await supabase.from("ads").insert({
-      title,
-      youtube_url: url,
-      reward_points: points,
-      is_active: true
-    });
+    box.appendChild(div);
+  });
+}
 
-    adTitle.value = "";
-    adUrl.value = "";
-    adPoints.value = 3;
+/* =========================
+   طلبات الشحن (المهم)
+========================= */
+async function loadDeposits() {
+  const box = document.getElementById("depositsList");
+  const { data } = await supabase
+    .from("deposits")
+    .select("*")
+    .eq("status","pending");
 
-    loadAds();
-  };
-
-  // ================= الإعلانات =================
-  async function loadAds() {
-    const box = document.getElementById("adsList");
-    const { data } = await supabase.from("ads").select("*").order("id",{ascending:false});
-
-    if (!data || data.length === 0) {
-      box.innerHTML = "لا يوجد إعلانات";
-      return;
-    }
-
-    box.innerHTML = "";
-    data.forEach(ad => {
-      const div = document.createElement("div");
-      div.innerHTML = `
-        <b>${ad.title}</b><br>
-        نقاط: ${ad.reward_points}<br>
-        الحالة: ${ad.is_active ? "مفعل" : "موقف"}<br>
-        <button class="btn btn-ghost">${ad.is_active ? "إيقاف" : "تفعيل"}</button>
-        <hr>
-      `;
-
-      div.querySelector("button").onclick = async () => {
-        await supabase.from("ads")
-          .update({ is_active: !ad.is_active })
-          .eq("id", ad.id);
-        loadAds();
-      };
-
-      box.appendChild(div);
-    });
+  if (!data || data.length === 0) {
+    box.innerHTML = "لا يوجد طلبات";
+    return;
   }
 
-  // ================= الشحن =================
-  async function loadDeposits() {
-    const box = document.getElementById("depositsList");
-    const { data } = await supabase.from("deposits").select("*").eq("status","pending");
+  box.innerHTML = "";
+  data.forEach(d => {
+    const div = document.createElement("div");
+    div.innerHTML = `
+      المستخدم: ${d.user_id}<br>
+      المبلغ: ${d.amount_usd}$<br>
+      TXID: ${d.txid || "-"}<br>
+      <button class="btn btn-primary">موافقة</button>
+      <hr>
+    `;
 
-    if (!data || data.length === 0) {
-      box.innerHTML = "لا يوجد طلبات";
-      return;
-    }
+    div.querySelector("button").onclick = async () => {
 
-    box.innerHTML = "";
-    data.forEach(d => {
-      const div = document.createElement("div");
-      div.innerHTML = `
-        ${d.amount_usd}$ – ${d.txid || "بدون TXID"}<br>
-        <button class="btn btn-primary">موافقة</button>
-        <hr>
-      `;
+      // 1️⃣ جلب أو إنشاء محفظة
+      let { data: wallet } = await supabase
+        .from("wallets")
+        .select("points")
+        .eq("user_id", d.user_id)
+        .single();
 
-      div.querySelector("button").onclick = async () => {
-        await supabase.from("deposits")
-          .update({ status:"approved" })
-          .eq("id", d.id);
+      if (!wallet) {
+        await supabase.from("wallets").insert({
+          user_id: d.user_id,
+          points: 0
+        });
+        wallet = { points: 0 };
+      }
 
-        const { data: wallet } = await supabase
-          .from("wallets")
-          .select("points")
-          .eq("user_id", d.user_id)
-          .single();
+      // 2️⃣ إضافة الرصيد
+      const newPoints = Number(wallet.points) + Number(d.amount_usd);
 
-        await supabase.from("wallets")
-          .update({ points:(wallet.points||0)+d.amount_usd })
-          .eq("user_id", d.user_id);
+      await supabase
+        .from("wallets")
+        .update({ points: newPoints })
+        .eq("user_id", d.user_id);
 
-        loadDeposits();
-      };
+      // 3️⃣ تحديث حالة الطلب
+      await supabase
+        .from("deposits")
+        .update({ status:"approved" })
+        .eq("id", d.id);
 
-      box.appendChild(div);
-    });
+      alert("✅ تم شحن الرصيد بنجاح");
+      loadDeposits();
+    };
+
+    box.appendChild(div);
+  });
+}
+
+/* =========================
+   طلبات السحب
+========================= */
+async function loadWithdrawals() {
+  const box = document.getElementById("withdrawalsList");
+  const { data } = await supabase
+    .from("withdrawals")
+    .select("*")
+    .eq("status","pending");
+
+  if (!data || data.length === 0) {
+    box.innerHTML = "لا يوجد طلبات";
+    return;
   }
 
-  // ================= السحب =================
-  async function loadWithdrawals() {
-    const box = document.getElementById("withdrawalsList");
-    const { data } = await supabase.from("withdrawals").select("*").eq("status","pending");
+  box.innerHTML = "";
+  data.forEach(w => {
+    const div = document.createElement("div");
+    div.innerHTML = `
+      المستخدم: ${w.user_id}<br>
+      النقاط: ${w.points}<br>
+      العنوان: ${w.wallet_address}<br>
+      <button class="btn btn-primary">تم الدفع</button>
+      <hr>
+    `;
 
-    if (!data || data.length === 0) {
-      box.innerHTML = "لا يوجد طلبات";
-      return;
-    }
+    div.querySelector("button").onclick = async () => {
+      await supabase.from("withdrawals")
+        .update({ status:"paid" })
+        .eq("id", w.id);
+      loadWithdrawals();
+    };
 
-    box.innerHTML = "";
-    data.forEach(w => {
-      const div = document.createElement("div");
-      div.innerHTML = `
-        ${w.points} نقطة – ${w.wallet_address}<br>
-        <button class="btn btn-primary">تم الدفع</button>
-        <hr>
-      `;
+    box.appendChild(div);
+  });
+}
 
-      div.querySelector("button").onclick = async () => {
-        await supabase.from("withdrawals")
-          .update({ status:"paid" })
-          .eq("id", w.id);
-        loadWithdrawals();
-      };
-
-      box.appendChild(div);
-    });
-  }
-
-  loadAds();
-  loadDeposits();
-  loadWithdrawals();
+loadAds();
+loadDeposits();
+loadWithdrawals();
 </script>
 
 </body>
