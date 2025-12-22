@@ -13,7 +13,7 @@
     <div class="logo"></div>
     <div>
       <h1>الإعلانات</h1>
-      <p class="small">يمكنك أخذ النقاط مرة واحدة كل 24 ساعة</p>
+      <p class="small">يمكنك أخذ النقاط مرة واحدة كل 24 ساعة (بعد الشحن)</p>
     </div>
   </div>
 
@@ -32,23 +32,54 @@
 <script type="module">
 import { supabase } from "./assets/supabaseClient.js";
 
+/* =========================
+   التحقق من تسجيل الدخول
+========================= */
 const { data: { user } } = await supabase.auth.getUser();
 if (!user) window.location.href = "login.html";
 
-// جلب الإعلانات
+/* =========================
+   التحقق من الشحن
+   (لا إعلانات بدون شحن)
+========================= */
+const { data: wallet } = await supabase
+  .from("wallets")
+  .select("points")
+  .eq("user_id", user.id)
+  .single();
+
+const box = document.getElementById("adsList");
+
+if (!wallet || wallet.points <= 0) {
+  box.innerHTML = `
+    <div class="card">
+      <h3>🔒 الإعلانات مقفلة</h3>
+      <p class="small">
+        يجب شحن حسابك أولاً حتى تتمكن من مشاهدة الإعلانات وكسب النقاط
+      </p>
+      <a href="wallet.html" class="btn btn-primary">
+        شحن الآن
+      </a>
+    </div>
+  `;
+  throw new Error("User has no balance");
+}
+
+/* =========================
+   جلب الإعلانات المفعّلة
+========================= */
 const { data: ads } = await supabase
   .from("ads")
   .select("*")
   .eq("is_active", true);
 
-const box = document.getElementById("adsList");
-
 if (!ads || ads.length === 0) {
   box.innerHTML = "<div class='card'>لا يوجد إعلانات حالياً</div>";
 } else {
+
   for (const ad of ads) {
 
-    // جلب آخر مشاهدة
+    // جلب آخر مشاهدة للإعلان
     const { data: view } = await supabase
       .from("ad_views")
       .select("*")
@@ -89,18 +120,14 @@ if (!ads || ads.length === 0) {
 
     if (canClaim) {
       btn.onclick = async () => {
-        // إضافة نقاط
-        const { data: wallet } = await supabase
-          .from("wallets")
-          .select("points")
-          .eq("user_id", user.id)
-          .single();
 
+        // إضافة النقاط
         await supabase
           .from("wallets")
           .update({ points: wallet.points + ad.reward_points })
           .eq("user_id", user.id);
 
+        // تحديث أو إدخال سجل المشاهدة
         if (view) {
           await supabase
             .from("ad_views")
