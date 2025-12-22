@@ -1,0 +1,101 @@
+:root{
+  --bg:#0b0b0f;
+  --card:#141420;
+  --gold:#d8b15a;
+  --silver:#c9c9c9;
+  --muted:#9aa0a6;
+  --danger:#ff5b5b;
+  --ok:#44d17a;
+}
+
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  font-family: Tahoma, Arial, sans-serif;
+  background: #0b0b0f;
+  color:#fff;
+  direction: rtl;
+}
+
+.container{
+  max-width:420px;
+  margin:auto;
+  padding:15px;
+}
+
+.brand{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:15px;
+}
+.logo{
+  width:40px;
+  height:40px;
+  border-radius:10px;
+  background: linear-gradient(135deg,var(--gold),var(--silver));
+}
+
+.card{
+  background:#141420;
+  border-radius:15px;
+  padding:15px;
+  margin-bottom:15px;
+}
+
+.row{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+}
+
+label{
+  font-size:13px;
+  color:var(--muted);
+}
+
+input{
+  width:100%;
+  padding:10px;
+  border-radius:10px;
+  border:none;
+  margin-top:5px;
+}
+
+.btn{
+  width:100%;
+  padding:12px;
+  border:none;
+  border-radius:12px;
+  font-weight:bold;
+  cursor:pointer;
+}
+
+.btn-primary{
+  background:var(--gold);
+  color:#000;
+}
+
+.btn-ghost{
+  background:#1f1f2f;
+  color:#fff;
+}
+
+.btn-danger{
+  background:#ff5b5b;
+  color:#fff;
+}
+
+.small{
+  font-size:12px;
+  color:var(--muted);
+}
+
+.badge{
+  padding:5px 10px;
+  border-radius:20px;
+  background:#1f1f2f;
+  font-size:12px;
+}
+.badge.warn{background:#6b5a2e}
