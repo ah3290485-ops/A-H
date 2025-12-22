@@ -45,21 +45,21 @@
       </div>
     </div>
   </div>
+
   <!-- مستوى الحساب -->
-<div class="card">
-  <div class="row">
-    <div>
-      <div class="small">مستوى الحساب</div>
-      <div id="userLevel" style="font-size:22px;font-weight:800">
-        عادي
+  <div class="card">
+    <div class="row">
+      <div>
+        <div class="small">مستوى الحساب</div>
+        <div id="userLevel" style="font-size:22px;font-weight:800">
+          عادي
+        </div>
+      </div>
+      <div>
+        <div class="badge">حسب نشاطك</div>
       </div>
     </div>
-    <div>
-      <div class="badge">حسب نشاطك</div>
-    </div>
   </div>
-</div>
-
 
   <!-- أزرار -->
   <div class="card">
@@ -104,7 +104,9 @@
 
   document.getElementById("userEmail").innerText = user.email;
 
-  // جلب أو إنشاء المحفظة
+  // =======================
+  // المحفظة
+  // =======================
   let { data: wallet } = await supabase
     .from("wallets")
     .select("points")
@@ -119,12 +121,39 @@
     wallet = { points: 0 };
   }
 
-  // عرض النقاط
   document.getElementById("points").innerText = wallet.points;
 
-  // حساب الأرباح (1 نقطة = 1 دولار)
+  // الأرباح (1 نقطة = 1 دولار)
   const earnings = Number(wallet.points || 0);
   document.getElementById("earnings").innerText = earnings + " $";
+
+  // =======================
+  // مستوى الحساب
+  // =======================
+  let { data: profile } = await supabase
+    .from("profiles")
+    .select("level")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile) {
+    await supabase.from("profiles").insert({
+      id: user.id,
+      level: "عادي"
+    });
+    profile = { level: "عادي" };
+  }
+
+  // ترقية تلقائية إلى VIP عند 100 نقطة
+  if (wallet.points >= 100 && profile.level !== "VIP") {
+    await supabase
+      .from("profiles")
+      .update({ level: "VIP" })
+      .eq("id", user.id);
+    profile.level = "VIP";
+  }
+
+  document.getElementById("userLevel").innerText = profile.level;
 
   // تسجيل خروج
   document.getElementById("logoutBtn").onclick = async () => {
