@@ -1,102 +1,37 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>الملف الشخصي</title>
   <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
-  <div class="container">
-    <div class="brand">
-      <div class="logo"></div>
-      <div>
-        <h1>الملف الشخصي</h1>
-        <p id="userEmail" class="small">...</p>
-      </div>
-    </div>
 
-    <div class="card">
-      <label>الاسم</label>
-      <input id="fullName" type="text" placeholder="اسمك الكامل">
-
-      <div style="height:12px"></div>
-      <button id="saveBtn" class="btn btn-primary">حفظ التغييرات</button>
-    </div>
-
-    <div class="card">
-      <h3 style="margin:0 0 8px">تغيير كلمة المرور</h3>
-      <label>كلمة المرور الجديدة</label>
-      <input id="newPassword" type="password" placeholder="********">
-
-      <div style="height:12px"></div>
-      <button id="changePassBtn" class="btn btn-ghost">تغيير كلمة المرور</button>
-    </div>
-
-    <div class="card">
-      <h3 style="margin:0 0 8px">الدعم</h3>
-      <p class="small">
-        واتساب: <span class="badge">PUT_WHATSAPP_LINK</span><br>
-        تيليغرام: <span class="badge">PUT_TELEGRAM_LINK</span>
-      </p>
-    </div>
-
-    <div class="card">
-      <a class="btn btn-ghost" href="dashboard.html">رجوع للوحة التحكم</a>
+<div class="container">
+  <div class="brand">
+    <div class="logo"></div>
+    <div>
+      <h1>الملف الشخصي</h1>
+      <p id="userEmail" class="small">...</p>
     </div>
   </div>
 
-  <script type="module">
-    import { supabase } from "./assets/supabaseClient.js";
+  <!-- معلومات الحساب -->
+  <div class="card">
+    <label>الاسم</label>
+    <input id="fullName" type="text" placeholder="اسمك الكامل">
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) window.location.href = "login.html";
+    <div style="height:10px"></div>
+    <button id="saveNameBtn" class="btn btn-primary">حفظ الاسم</button>
+  </div>
 
-    document.getElementById("userEmail").innerText = user.email;
+  <!-- تغيير كلمة المرور -->
+  <div class="card">
+    <h3>تغيير كلمة المرور</h3>
 
-    // جلب الاسم
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("full_name")
-      .eq("id", user.id)
-      .single();
+    <label>كلمة المرور الجديدة</label>
+    <input id="newPassword" type="password" placeholder="********">
 
-    if (profile) {
-      document.getElementById("fullName").value = profile.full_name || "";
-    }
-
-    // حفظ الاسم
-    document.getElementById("saveBtn").addEventListener("click", async () => {
-      const fullName = document.getElementById("fullName").value.trim();
-
-      await supabase
-        .from("profiles")
-        .update({ full_name: fullName })
-        .eq("id", user.id);
-
-      alert("تم حفظ التغييرات");
-    });
-
-    // تغيير كلمة المرور
-    document.getElementById("changePassBtn").addEventListener("click", async () => {
-      const newPassword = document.getElementById("newPassword").value;
-
-      if (!newPassword || newPassword.length < 6) {
-        alert("كلمة المرور يجب أن تكون 6 أحرف على الأقل");
-        return;
-      }
-
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword
-      });
-
-      if (error) {
-        alert(error.message);
-      } else {
-        alert("تم تغيير كلمة المرور بنجاح");
-        document.getElementById("newPassword").value = "";
-      }
-    });
-  </script>
-</body>
-</html>
+    <div style="height:10px"></div>
+    <button
