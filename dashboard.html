@@ -1,4 +1,4 @@
-i<!doctype html>
+<!doctype html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8" />
@@ -9,6 +9,7 @@ i<!doctype html>
 <body>
 
 <div class="container">
+
   <div class="brand">
     <div class="logo"></div>
     <div>
@@ -17,7 +18,7 @@ i<!doctype html>
     </div>
   </div>
 
-  <!-- رصيد النقاط -->
+  <!-- الرصيد -->
   <div class="card">
     <div class="row">
       <div>
@@ -31,46 +32,28 @@ i<!doctype html>
     </div>
   </div>
 
-  <!-- الأرباح -->
-  <div class="card">
-    <div class="row">
-      <div>
-        <div class="small">إجمالي الأرباح</div>
-        <div id="earnings" style="font-size:26px;font-weight:800;color:#44d17a">
-          0 $
-        </div>
-      </div>
-      <div>
-        <div class="badge">قابلة للسحب</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- مستوى الحساب -->
-  <div class="card">
-    <div class="row">
-      <div>
-        <div class="small">مستوى الحساب</div>
-        <div id="userLevel" style="font-size:22px;font-weight:800">
-          عادي
-        </div>
-      </div>
-      <div>
-        <div class="badge">حسب نشاطك</div>
-      </div>
-    </div>
-  </div>
-
   <!-- أزرار -->
   <div class="card">
-    <a class="btn btn-primary" href="ads.html">مشاهدة الإعلانات</a>
+
+    <a class="btn btn-primary" href="ads.html">📺 مشاهدة الإعلانات</a>
     <div style="height:10px"></div>
-    <a class="btn btn-ghost" href="wallet.html">محفظتي</a>
+
+    <a class="btn btn-ghost" href="wallet.html">👛 محفظتي</a>
     <div style="height:10px"></div>
-    <a class="btn btn-ghost" href="profile.html">الملف الشخصي</a>
+
+    <a class="btn btn-ghost" href="profile.html">👤 الملف الشخصي</a>
     <div style="height:10px"></div>
+
+    <!-- زر الأدمن (مخفي افتراضيًا) -->
+    <a id="adminBtn" href="admin.html" class="btn btn-ghost" style="display:none">
+      🛠️ لوحة الأدمن
+    </a>
+    <div style="height:10px"></div>
+
     <button id="logoutBtn" class="btn btn-danger">تسجيل خروج</button>
+
   </div>
+
 </div>
 
 <!-- شريط التنقل السفلي -->
@@ -96,74 +79,49 @@ i<!doctype html>
 </nav>
 
 <script type="module">
-  import { supabase } from "./assets/supabaseClient.js";
+import { supabase } from "./assets/supabaseClient.js";
 
-  // تحقق من تسجيل الدخول
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) window.location.href = "login.html";
+/* =========================
+   تحقق تسجيل الدخول
+========================= */
+const { data: { user } } = await supabase.auth.getUser();
+if (!user) window.location.href = "login.html";
 
-  document.getElementById("userEmail").innerText = user.email;
+document.getElementById("userEmail").innerText = user.email;
 
-  // =======================
-  // المحفظة
-  // =======================
-  let { data: wallet } = await supabase
-    .from("wallets")
-    .select("points")
-    .eq("user_id", user.id)
-    .single();
+/* =========================
+   زر الأدمن (إيميلك فقط)
+========================= */
+if (user.email === "am.alsus1995@gmail.com") {
+  document.getElementById("adminBtn").style.display = "block";
+}
 
-  if (!wallet) {
-    await supabase.from("wallets").insert({
-      user_id: user.id,
-      points: 0
-    });
-    wallet = { points: 0 };
-  }
+/* =========================
+   جلب أو إنشاء المحفظة
+========================= */
+let { data: wallet } = await supabase
+  .from("wallets")
+  .select("points")
+  .eq("user_id", user.id)
+  .single();
 
-  document.getElementById("points").innerText = wallet.points;
+if (!wallet) {
+  await supabase.from("wallets").insert({
+    user_id: user.id,
+    points: 0
+  });
+  wallet = { points: 0 };
+}
 
-  // الأرباح (1 نقطة = 1 دولار)
-  const earnings = Number(wallet.points || 0);
-  document.getElementById("earnings").innerText = earnings + " $";
+document.getElementById("points").innerText = wallet.points;
 
-  // =======================
-  // مستوى الحساب
-  // =======================
-  let { data: profile } = await supabase
-    .from("profiles")
-    .select("level")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile) {
-    await supabase.from("profiles").insert({
-      id: user.id,
-      level: "عادي"
-    });
-    profile = { level: "عادي" };
-  }
-
-  // ترقية تلقائية إلى VIP عند 100 نقطة
-  if (wallet.points >= 100 && profile.level !== "VIP") {
-    await supabase
-      .from("profiles")
-      .update({ level: "VIP" })
-      .eq("id", user.id);
-    profile.level = "VIP";
-  }
-
-  document.getElementById("userLevel").innerText = profile.level;
-  <a id="adminBtn" href="admin.html" class="btn btn-ghost" style="display:none">
-  🛠️ لوحة الأدمن
-</a>
-<div style="height:10px"></div>
-
-  // تسجيل خروج
-  document.getElementById("logoutBtn").onclick = async () => {
-    await supabase.auth.signOut();
-    window.location.href = "login.html";
-  };
+/* =========================
+   تسجيل خروج
+========================= */
+document.getElementById("logoutBtn").onclick = async () => {
+  await supabase.auth.signOut();
+  window.location.href = "login.html";
+};
 </script>
 
 </body>
