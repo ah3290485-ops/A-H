@@ -3,13 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>B&C </title>
+  <title>B&C</title>
   <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
 
 <div class="container">
 
+  <!-- العنوان -->
   <div class="brand">
     <div class="logo"></div>
     <div>
@@ -32,10 +33,31 @@
     </div>
   </div>
 
-  <!-- أزرار -->
+  <!-- أسعار العملات -->
+  <div class="card">
+    <h3 style="margin-bottom:10px">💰 أسعار العملات</h3>
+
+    <div class="row">
+      <div>
+        <div class="small">Bitcoin (BTC)</div>
+        <div id="btcPrice" style="font-weight:800">...</div>
+      </div>
+      <div>
+        <div class="small">Ethereum (ETH)</div>
+        <div id="ethPrice" style="font-weight:800">...</div>
+      </div>
+    </div>
+
+    <div style="margin-top:10px">
+      <div class="small">Tether (USDT)</div>
+      <div id="usdtPrice" style="font-weight:800">...</div>
+    </div>
+  </div>
+
+  <!-- الأزرار -->
   <div class="card">
     <a class="btn btn-ghost" href="about.html">ℹ️ من نحن</a>
-<div style="height:10px"></div>
+    <div style="height:10px"></div>
 
     <a class="btn btn-primary" href="ads.html">📺 مشاهدة الإعلانات</a>
     <div style="height:10px"></div>
@@ -46,14 +68,13 @@
     <a class="btn btn-ghost" href="profile.html">👤 الملف الشخصي</a>
     <div style="height:10px"></div>
 
-    <!-- زر الأدمن (مخفي افتراضيًا) -->
+    <!-- زر الأدمن -->
     <a id="adminBtn" href="admin.html" class="btn btn-ghost" style="display:none">
       🛠️ لوحة الأدمن
     </a>
     <div style="height:10px"></div>
 
     <button id="logoutBtn" class="btn btn-danger">تسجيل خروج</button>
-
   </div>
 
 </div>
@@ -118,12 +139,38 @@ if (!wallet) {
 document.getElementById("points").innerText = wallet.points;
 
 /* =========================
-   تسجيل خروج
+   تسجيل الخروج
 ========================= */
 document.getElementById("logoutBtn").onclick = async () => {
   await supabase.auth.signOut();
   window.location.href = "login.html";
 };
+
+/* =========================
+   أسعار العملات (CoinGecko)
+========================= */
+async function loadCryptoPrices() {
+  try {
+    const res = await fetch(
+      "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,tether&vs_currencies=usd"
+    );
+    const data = await res.json();
+
+    document.getElementById("btcPrice").innerText =
+      data.bitcoin.usd.toLocaleString() + " $";
+
+    document.getElementById("ethPrice").innerText =
+      data.ethereum.usd.toLocaleString() + " $";
+
+    document.getElementById("usdtPrice").innerText =
+      data.tether.usd.toFixed(2) + " $";
+  } catch (e) {
+    console.log("فشل تحميل أسعار العملات");
+  }
+}
+
+loadCryptoPrices();
+setInterval(loadCryptoPrices, 60000);
 </script>
 
 </body>
