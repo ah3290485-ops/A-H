@@ -3,20 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>لوحة الأدمن</title>
+  <title>لوحة الإدارة</title>
   <link rel="stylesheet" href="assets/styles.css">
-  <style>
-    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    .muted{opacity:.75}
-    .pill{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:700;font-size:12px}
-    .pill-ok{background:#1f6f3a}
-    .pill-bad{background:#7a1f1f}
-    .mini{font-size:12px;opacity:.8}
-    input,select{width:100%}
-    .rowbtn{display:flex;gap:8px;flex-wrap:wrap}
-    .rowbtn .btn{flex:1;min-width:120px}
-    hr{opacity:.15}
-  </style>
 </head>
 <body>
 
@@ -25,8 +13,8 @@
     <div class="logo"></div>
     <div>
       <h1>🛠️ لوحة الإدارة</h1>
-      <p class="small">إدارة المستخدمين – الرصيد – الشحن – السحب – الإعلانات</p>
-      <p id="me" class="mini muted"></p>
+      <p class="small">إدارة المستخدمين – الشحن – السحب</p>
+      <p class="small" id="adminEmail"></p>
     </div>
   </div>
 
@@ -34,26 +22,11 @@
   <div class="card">
     <h3>👥 المستخدمين</h3>
 
-    <div class="grid2">
-      <div>
-        <label class="small">بحث بالإيميل</label>
-        <input id="searchEmail" type="text" placeholder="مثال: user@gmail.com">
-      </div>
-      <div>
-        <label class="small">عرض</label>
-        <select id="filterStatus">
-          <option value="all">الكل</option>
-          <option value="active">نشط</option>
-          <option value="banned">محظور</option>
-        </select>
-      </div>
-    </div>
-
+    <input id="searchEmail" type="text" placeholder="بحث بالإيميل">
     <div style="height:10px"></div>
-    <button id="reloadUsers" class="btn btn-ghost">🔄 تحديث المستخدمين</button>
+    <button id="loadUsers" class="btn btn-primary">تحديث المستخدمين</button>
 
-    <div style="height:12px"></div>
-    <div id="usersList">تحميل...</div>
+    <div id="usersList" class="small" style="margin-top:10px">تحميل...</div>
   </div>
 
   <!-- طلبات الشحن -->
@@ -65,47 +38,8 @@
   <!-- طلبات السحب -->
   <div class="card">
     <h3>💸 طلبات السحب</h3>
-    <div class="small muted">⚠️ السحب مسموح بعد 35 يوم من أول شحن</div>
-    <div style="height:8px"></div>
+    <p class="small">⚠️ السحب مسموح بعد 35 يوم من أول شحن</p>
     <div id="withdrawalsList">تحميل...</div>
-  </div>
-
-  <!-- الإعلانات -->
-  <div class="card">
-    <h3>📺 الإعلانات</h3>
-
-    <div class="grid2">
-      <div>
-        <label class="small">عنوان الإعلان</label>
-        <input id="adTitle" type="text" placeholder="مثال: إعلان اليوم">
-      </div>
-      <div>
-        <label class="small">رابط يوتيوب</label>
-        <input id="adUrl" type="text" placeholder="https://youtube.com/...">
-      </div>
-    </div>
-
-    <div style="height:10px"></div>
-
-    <div class="grid2">
-      <div>
-        <label class="small">مكافأة النقاط</label>
-        <input id="adReward" type="number" placeholder="مثال: 3">
-      </div>
-      <div>
-        <label class="small">مفعل؟</label>
-        <select id="adActive">
-          <option value="true">مفعل</option>
-          <option value="false">موقف</option>
-        </select>
-      </div>
-    </div>
-
-    <div style="height:10px"></div>
-    <button id="createAd" class="btn btn-primary">➕ إضافة إعلان</button>
-
-    <div style="height:12px"></div>
-    <div id="adsList">تحميل...</div>
   </div>
 
   <a href="dashboard.html" class="btn btn-ghost">⬅️ رجوع</a>
@@ -114,220 +48,124 @@
 <script type="module">
 import { supabase } from "./assets/supabaseClient.js";
 
-/* =========================
+/* =====================
    حماية الأدمن
-========================= */
-const ADMIN_EMAILS = ["am.alsus1995@gmail.com"];
+===================== */
+const ADMIN_EMAIL = "am.alsus1995@gmail.com";
 
 const { data: { user } } = await supabase.auth.getUser();
-if (!user) window.location.href = "login.html";
-if (!ADMIN_EMAILS.includes(user.email)) {
+if (!user) location.href = "login.html";
+if (user.email !== ADMIN_EMAIL) {
   alert("غير مصرح لك");
-  window.location.href = "dashboard.html";
+  location.href = "dashboard.html";
 }
-document.getElementById("me").innerText = "أنت مسجل كأدمن: " + user.email;
 
-/* =========================
-   Helpers
-========================= */
-function esc(s){ return String(s ?? "").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m])); }
-function daysBetween(a,b){ return (b-a)/(1000*60*60*24); }
+document.getElementById("adminEmail").innerText =
+  "أنت مسجل كأدمن: " + user.email;
 
-/* =========================
-   USERS (profiles + wallets)
-   ملاحظة: لازم يكون عندك جدول profiles فيه:
-   user_id (uuid) PK, email (text), status (text) default 'active', created_at
-========================= */
+/* =====================
+   تحميل المستخدمين
+===================== */
 async function loadUsers() {
   const box = document.getElementById("usersList");
-  box.innerHTML = "تحميل...";
+  box.innerText = "جاري التحميل...";
 
-  const q = document.getElementById("searchEmail").value.trim().toLowerCase();
-  const fs = document.getElementById("filterStatus").value;
-
-  let req = supabase
-    .from("profiles")
-    .select("user_id,email,status,created_at");
-
-  if (fs !== "all") req = req.eq("status", fs);
-  if (q) req = req.ilike("email", `%${q}%`);
-
-  const { data: profiles, error } = await req.order("created_at", { ascending: false }).limit(50);
-  if (error) {
-    box.innerHTML = "خطأ: " + esc(error.message);
-    return;
-  }
-
-  if (!profiles || profiles.length === 0) {
-    box.innerHTML = "<div class='small muted'>لا يوجد مستخدمين مطابقين</div>";
-    return;
-  }
-
-  box.innerHTML = "";
-  for (const p of profiles) {
-    // wallet
-    let { data: wallet } = await supabase
-      .from("wallets")
-      .select("points, first_deposit_at")
-      .eq("user_id", p.user_id)
-      .single();
-
-    if (!wallet) wallet = { points: 0, first_deposit_at: null };
-
-    const statusPill = p.status === "active"
-      ? "<span class='pill pill-ok'>نشط</span>"
-      : "<span class='pill pill-bad'>محظور</span>";
-
-    const canWithdraw = wallet.first_deposit_at
-      ? (daysBetween(new Date(wallet.first_deposit_at), new Date()) >= 35)
-      : false;
-
-    const card = document.createElement("div");
-    card.style.marginBottom = "12px";
-    card.innerHTML = `
-      <div style="display:flex;justify-content:space-between;gap:10px;align-items:center">
-        <div>
-          <div style="font-weight:800">${esc(p.email || "-")}</div>
-          <div class="mini muted">UID: ${esc(p.user_id)}</div>
-          <div class="mini muted">الرصيد: <b>${esc(wallet.points)}</b> نقطة</div>
-          <div class="mini muted">السحب: ${canWithdraw ? "✅ مسموح" : "⏳ بعد 35 يوم"}</div>
-        </div>
-        <div>${statusPill}</div>
-      </div>
-
-      <div style="height:10px"></div>
-
-      <div class="grid2">
-        <div>
-          <label class="small">تعديل الرصيد (+/-)</label>
-          <input data-amt type="number" placeholder="مثال: 50 أو -10">
-        </div>
-        <div>
-          <label class="small">سبب (اختياري)</label>
-          <input data-note type="text" placeholder="مثال: مكافأة / تصحيح">
-        </div>
-      </div>
-
-      <div style="height:10px"></div>
-
-      <div class="rowbtn">
-        <button data-add class="btn btn-primary">✅ تطبيق الرصيد</button>
-        <button data-toggle class="btn btn-ghost">${p.status === "active" ? "🚫 حظر" : "✅ تفعيل"}</button>
-        <button data-reset class="btn btn-danger" disabled title="يتطلب Edge Function">🔐 تغيير كلمة المرور (قريباً)</button>
-        <button data-email class="btn btn-danger" disabled title="يتطلب Edge Function">✉️ تبديل الإيميل (قريباً)</button>
-      </div>
-      <hr>
-    `;
-
-    // تعديل الرصيد
-    card.querySelector("[data-add]").onclick = async () => {
-      const delta = Number(card.querySelector("[data-amt]").value);
-      const note = card.querySelector("[data-note]").value.trim();
-      if (!delta || isNaN(delta)) { alert("أدخل قيمة صحيحة"); return; }
-
-      // جلب رصيد
-      let { data: w } = await supabase
-        .from("wallets")
-        .select("points")
-        .eq("user_id", p.user_id)
-        .single();
-
-      if (!w) {
-        await supabase.from("wallets").insert({ user_id: p.user_id, points: 0 });
-        w = { points: 0 };
-      }
-
-      const newPoints = Number(w.points) + delta;
-      if (newPoints < 0) { alert("ما فيك تخلي الرصيد سالب"); return; }
-
-      await supabase.from("wallets")
-        .update({ points: newPoints })
-        .eq("user_id", p.user_id);
-
-      // سجل حركة (اختياري) إذا عندك جدول ledger
-      // await supabase.from("ledger").insert({ user_id: p.user_id, type:"admin_adjust", amount: delta, note });
-
-      alert("تم تعديل الرصيد ✅");
-      loadUsers();
-    };
-
-    // حظر/تفعيل
-    card.querySelector("[data-toggle]").onclick = async () => {
-      const next = p.status === "active" ? "banned" : "active";
-      await supabase.from("profiles")
-        .update({ status: next })
-        .eq("user_id", p.user_id);
-
-      alert("تم تحديث الحالة ✅");
-      loadUsers();
-    };
-
-    box.appendChild(card);
-  }
-}
-
-document.getElementById("reloadUsers").onclick = loadUsers;
-document.getElementById("searchEmail").addEventListener("input", () => {
-  clearTimeout(window._t); window._t = setTimeout(loadUsers, 400);
-});
-document.getElementById("filterStatus").onchange = loadUsers;
-
-/* =========================
-   Deposits approve/reject
-========================= */
-async function loadDeposits() {
-  const box = document.getElementById("depositsList");
-  box.innerHTML = "تحميل...";
+  const emailSearch = document.getElementById("searchEmail").value.trim();
 
   const { data, error } = await supabase
-    .from("deposits")
-    .select("*")
-    .eq("status", "pending")
-    .order("id", { ascending: false });
+    .from("profiles")
+    .select(`
+      user_id,
+      full_name,
+      level,
+      wallets ( points ),
+      auth_users:auth.users ( email )
+    `);
 
-  if (error) { box.innerHTML = "خطأ: " + esc(error.message); return; }
-  if (!data || data.length === 0) { box.innerHTML = "<div class='small muted'>لا يوجد طلبات</div>"; return; }
+  if (error) {
+    box.innerText = "خطأ: " + error.message;
+    return;
+  }
+
+  let users = data;
+
+  if (emailSearch) {
+    users = users.filter(u =>
+      u.auth_users?.email?.includes(emailSearch)
+    );
+  }
+
+  if (users.length === 0) {
+    box.innerText = "لا يوجد مستخدمين";
+    return;
+  }
 
   box.innerHTML = "";
+
+  users.forEach(u => {
+    const div = document.createElement("div");
+    div.style.borderBottom = "1px solid #333";
+    div.style.padding = "8px 0";
+
+    div.innerHTML = `
+      📧 ${u.auth_users?.email || "-"}<br>
+      👤 الاسم: ${u.full_name || "-"}<br>
+      ⭐ المستوى: ${u.level || "عادي"}<br>
+      💰 الرصيد: ${u.wallets?.points || 0} نقطة
+    `;
+
+    box.appendChild(div);
+  });
+}
+
+document.getElementById("loadUsers").onclick = loadUsers;
+
+/* =====================
+   طلبات الشحن
+===================== */
+async function loadDeposits() {
+  const box = document.getElementById("depositsList");
+
+  const { data } = await supabase
+    .from("deposits")
+    .select("*")
+    .eq("status", "pending");
+
+  if (!data || data.length === 0) {
+    box.innerText = "لا يوجد طلبات";
+    return;
+  }
+
+  box.innerHTML = "";
+
   data.forEach(d => {
     const div = document.createElement("div");
     div.innerHTML = `
-      <b>طلب شحن</b><br>
-      المستخدم: <span class="mini">${esc(d.user_id)}</span><br>
-      المبلغ: <b>${esc(d.amount_usd)}</b> USDT<br>
-      TXID: <span class="mini">${esc(d.txid || "-")}</span><br>
-      <div style="height:8px"></div>
-      <div class="rowbtn">
-        <button class="btn btn-primary">✅ موافقة</button>
-        <button class="btn btn-danger">❌ رفض</button>
-      </div>
+      المستخدم: ${d.user_id}<br>
+      المبلغ: ${d.amount_usd}$<br>
+      TXID: ${d.txid || "-"}<br>
+      <button class="btn btn-primary">موافقة</button>
       <hr>
     `;
 
-    const [btnOk, btnNo] = div.querySelectorAll("button");
+    div.querySelector("button").onclick = async () => {
+      const { data: wallet } = await supabase
+        .from("wallets")
+        .select("points")
+        .eq("user_id", d.user_id)
+        .single();
 
-    btnOk.onclick = async () => {
-      // wallet
-      let { data: w } = await supabase.from("wallets").select("points, first_deposit_at").eq("user_id", d.user_id).single();
-      if (!w) {
-        await supabase.from("wallets").insert({ user_id: d.user_id, points: 0, first_deposit_at: new Date().toISOString() });
-        w = { points: 0, first_deposit_at: new Date().toISOString() };
-      }
+      await supabase
+        .from("wallets")
+        .update({ points: (wallet?.points || 0) + d.amount_usd })
+        .eq("user_id", d.user_id);
 
-      const add = Number(d.amount_usd || 0);
-      const updates = { points: Number(w.points) + add };
-      if (!w.first_deposit_at) updates.first_deposit_at = new Date().toISOString();
+      await supabase
+        .from("deposits")
+        .update({ status: "approved" })
+        .eq("id", d.id);
 
-      await supabase.from("wallets").update(updates).eq("user_id", d.user_id);
-      await supabase.from("deposits").update({ status: "approved" }).eq("id", d.id);
-
-      alert("تم الشحن ✅");
-      loadDeposits(); loadUsers();
-    };
-
-    btnNo.onclick = async () => {
-      await supabase.from("deposits").update({ status: "rejected" }).eq("id", d.id);
-      alert("تم الرفض ✅");
+      alert("✅ تم الشحن");
       loadDeposits();
     };
 
@@ -335,146 +173,67 @@ async function loadDeposits() {
   });
 }
 
-/* =========================
-   Withdrawals approve/reject + deduct
-========================= */
+/* =====================
+   طلبات السحب
+===================== */
 async function loadWithdrawals() {
   const box = document.getElementById("withdrawalsList");
-  box.innerHTML = "تحميل...";
 
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from("withdrawals")
     .select("*")
-    .eq("status", "pending")
-    .order("id", { ascending: false });
+    .eq("status", "pending");
 
-  if (error) { box.innerHTML = "خطأ: " + esc(error.message); return; }
-  if (!data || data.length === 0) { box.innerHTML = "<div class='small muted'>لا يوجد طلبات</div>"; return; }
+  if (!data || data.length === 0) {
+    box.innerText = "لا يوجد طلبات";
+    return;
+  }
 
   box.innerHTML = "";
-  for (const w of data) {
-    let { data: wallet } = await supabase
-      .from("wallets")
-      .select("points, first_deposit_at")
-      .eq("user_id", w.user_id)
-      .single();
 
-    if (!wallet) wallet = { points: 0, first_deposit_at: null };
-
-    const allow = wallet.first_deposit_at
-      ? (daysBetween(new Date(wallet.first_deposit_at), new Date()) >= 35)
-      : false;
-
+  data.forEach(w => {
     const div = document.createElement("div");
     div.innerHTML = `
-      <b>طلب سحب</b><br>
-      المستخدم: <span class="mini">${esc(w.user_id)}</span><br>
-      النقاط: <b>${esc(w.points)}</b><br>
-      العنوان: <span class="mini">${esc(w.wallet_address || "-")}</span><br>
-      <div class="mini muted">رصيد المستخدم: ${esc(wallet.points)} نقطة</div>
-      <div class="mini">${allow ? "✅ شرط 35 يوم محقق" : "⏳ لم يكمل 35 يوم"}</div>
-      <div style="height:8px"></div>
-      <div class="rowbtn">
-        <button class="btn btn-primary" ${!allow ? "disabled" : ""}>✅ قبول (تم الدفع)</button>
-        <button class="btn btn-danger">❌ رفض</button>
-      </div>
+      المستخدم: ${w.user_id}<br>
+      النقاط: ${w.points}<br>
+      العنوان: ${w.wallet_address}<br>
+      <button class="btn btn-primary">تم الدفع</button>
       <hr>
     `;
 
-    const [btnOk, btnNo] = div.querySelectorAll("button");
+    div.querySelector("button").onclick = async () => {
+      const { data: wallet } = await supabase
+        .from("wallets")
+        .select("points")
+        .eq("user_id", w.user_id)
+        .single();
 
-    btnOk.onclick = async () => {
-      const pts = Number(w.points || 0);
-      if (pts <= 0) { alert("قيمة غير صحيحة"); return; }
+      if (!wallet || wallet.points < w.points) {
+        alert("الرصيد غير كافٍ");
+        return;
+      }
 
-      // refresh wallet points
-      const { data: w2 } = await supabase.from("wallets").select("points").eq("user_id", w.user_id).single();
-      const current = Number(w2?.points || 0);
-      if (current < pts) { alert("الرصيد غير كافي"); return; }
+      await supabase
+        .from("wallets")
+        .update({ points: wallet.points - w.points })
+        .eq("user_id", w.user_id);
 
-      await supabase.from("wallets").update({ points: current - pts }).eq("user_id", w.user_id);
-      await supabase.from("withdrawals").update({ status: "paid" }).eq("id", w.id);
+      await supabase
+        .from("withdrawals")
+        .update({ status: "paid" })
+        .eq("id", w.id);
 
-      alert("تم القبول وخصم الرصيد ✅");
-      loadWithdrawals(); loadUsers();
-    };
-
-    btnNo.onclick = async () => {
-      await supabase.from("withdrawals").update({ status: "rejected" }).eq("id", w.id);
-      alert("تم الرفض ✅");
+      alert("✅ تم السحب");
       loadWithdrawals();
     };
 
     box.appendChild(div);
-  }
-}
-
-/* =========================
-   Ads create + toggle
-========================= */
-async function loadAds() {
-  const box = document.getElementById("adsList");
-  box.innerHTML = "تحميل...";
-
-  const { data, error } = await supabase.from("ads").select("*").order("id", { ascending: false });
-  if (error) { box.innerHTML = "خطأ: " + esc(error.message); return; }
-  if (!data || data.length === 0) { box.innerHTML = "<div class='small muted'>لا يوجد إعلانات</div>"; return; }
-
-  box.innerHTML = "";
-  data.forEach(ad => {
-    const div = document.createElement("div");
-    div.innerHTML = `
-      <b>${esc(ad.title)}</b><br>
-      <span class="mini muted">${esc(ad.youtube_url || "")}</span><br>
-      نقاط: <b>${esc(ad.reward_points)}</b><br>
-      الحالة: <b>${ad.is_active ? "مفعل" : "موقف"}</b><br>
-      <div style="height:8px"></div>
-      <div class="rowbtn">
-        <button class="btn btn-ghost">${ad.is_active ? "⏸️ إيقاف" : "▶️ تفعيل"}</button>
-      </div>
-      <hr>
-    `;
-    div.querySelector("button").onclick = async () => {
-      await supabase.from("ads").update({ is_active: !ad.is_active }).eq("id", ad.id);
-      loadAds();
-    };
-    box.appendChild(div);
   });
 }
 
-document.getElementById("createAd").onclick = async () => {
-  const title = document.getElementById("adTitle").value.trim();
-  const url = document.getElementById("adUrl").value.trim();
-  const reward = Number(document.getElementById("adReward").value);
-  const active = document.getElementById("adActive").value === "true";
-
-  if (!title || !url || !reward || reward <= 0) {
-    alert("أدخل بيانات الإعلان كاملة");
-    return;
-  }
-
-  await supabase.from("ads").insert({
-    title,
-    youtube_url: url,
-    reward_points: reward,
-    is_active: active
-  });
-
-  document.getElementById("adTitle").value = "";
-  document.getElementById("adUrl").value = "";
-  document.getElementById("adReward").value = "";
-
-  alert("تمت إضافة الإعلان ✅");
-  loadAds();
-};
-
-/* =========================
-   Init
-========================= */
-await loadUsers();
-await loadDeposits();
-await loadWithdrawals();
-await loadAds();
+loadUsers();
+loadDeposits();
+loadWithdrawals();
 </script>
 
 </body>
