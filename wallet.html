@@ -9,16 +9,22 @@
 <body>
 
 <div class="container">
+
   <div class="brand">
     <div class="logo"></div>
     <div>
-      <h1>👛 الشحن الأوتوماتيكي</h1>
-      <p class="small">USDT – TRC20</p>
+      <h1>👛 المحفظة</h1>
+      <p class="small">شحن وسحب USDT (TRC20)</p>
     </div>
   </div>
 
+  <!-- ===================== -->
+  <!-- 🔄 الشحن الأوتوماتيكي -->
+  <!-- ===================== -->
   <div class="card">
+    <h3>🔄 الشحن الأوتوماتيكي</h3>
     <p class="small">حوّل USDT (TRC20) إلى العنوان:</p>
+
     <div style="font-weight:800;word-break:break-all">
       TPNoGerv1EMBSdrs9Yca93eCQUVsoNiRvq
     </div>
@@ -38,11 +44,40 @@
     <button id="checkBtn" class="btn btn-primary">
       🔄 تحقق وشحن
     </button>
+
+    <div id="msg" class="small" style="margin-top:10px"></div>
   </div>
 
-  <div id="msg" class="small"></div>
+  <!-- ===================== -->
+  <!-- 💸 السحب -->
+  <!-- ===================== -->
+  <div class="card">
+    <h3>💸 سحب الرصيد</h3>
+
+    <label class="small">عدد النقاط</label>
+    <input id="wdPoints" type="number" placeholder="مثال: 50">
+
+    <div style="height:10px"></div>
+
+    <label class="small">عنوان المحفظة (USDT TRC20)</label>
+    <input id="wdAddress" type="text" placeholder="T...">
+
+    <div style="height:15px"></div>
+
+    <button id="withdrawBtn" class="btn btn-danger">
+      📤 طلب سحب
+    </button>
+
+    <p class="small" style="margin-top:10px;opacity:.7">
+      ⏳ السحب متاح بعد 35 يوم من أول شحن
+    </p>
+  </div>
+
 </div>
 
+<!-- ===================== -->
+<!-- شريط التنقل السفلي -->
+<!-- ===================== -->
 <nav class="bottom-nav">
   <div class="nav-wrap">
     <a class="nav-item" href="dashboard.html">🏠<div>الرئيسية</div></a>
@@ -57,23 +92,27 @@ import { supabase } from "./assets/supabaseClient.js";
 
 const OWNER_ADDRESS = "TPNoGerv1EMBSdrs9Yca93eCQUVsoNiRvq";
 
-/* تحقق تسجيل الدخول */
+/* =====================
+   تحقق تسجيل الدخول
+===================== */
 const { data: { user } } = await supabase.auth.getUser();
 if (!user) window.location.href = "login.html";
 
 const msg = document.getElementById("msg");
 
+/* =====================
+   الشحن الأوتوماتيكي
+===================== */
 document.getElementById("checkBtn").onclick = async () => {
   msg.innerText = "⏳ جاري التحقق...";
   const amount = Number(document.getElementById("amount").value);
   const txid = document.getElementById("txid").value.trim();
 
   if (!amount || amount < 1 || !txid) {
-    msg.innerText = "❌ أدخل المبلغ و TXID بشكل صحيح";
+    msg.innerText = "❌ أدخل المبلغ و TXID";
     return;
   }
 
-  /* منع تكرار TXID */
   const { data: used } = await supabase
     .from("deposits")
     .select("id")
@@ -85,7 +124,6 @@ document.getElementById("checkBtn").onclick = async () => {
     return;
   }
 
-  /* فحص TXID من Tronscan */
   const res = await fetch(
     `https://apilist.tronscanapi.com/api/transaction-info?hash=${txid}`
   );
@@ -97,58 +135,93 @@ document.getElementById("checkBtn").onclick = async () => {
   }
 
   const to = data.contractData.to_address;
-  const value = Number(data.contractData.amount) / 1e6; // USDT
+  const value = Number(data.contractData.amount) / 1e6;
 
   if (to !== OWNER_ADDRESS) {
-    msg.innerText = "❌ العنوان المستلم غير صحيح";
+    msg.innerText = "❌ العنوان غير صحيح";
     return;
   }
 
   if (value < amount) {
-    msg.innerText = "❌ المبلغ المحوّل أقل من المطلوب";
+    msg.innerText = "❌ المبلغ أقل من المطلوب";
     return;
   }
 
-  /* جلب المحفظة */
   let { data: wallet } = await supabase
     .from("wallets")
-    .select("points, last_deposit, first_deposit_at")
+    .select("points, first_deposit_at")
     .eq("user_id", user.id)
     .single();
 
   if (!wallet) {
+    wallet = { points: 0, first_deposit_at: new Date().toISOString() };
     await supabase.from("wallets").insert({
       user_id: user.id,
       points: 0,
-      last_deposit: 0,
-      first_deposit_at: new Date().toISOString()
+      first_deposit_at: wallet.first_deposit_at
     });
-    wallet = { points: 0, last_deposit: 0, first_deposit_at: new Date().toISOString() };
   }
 
-  const updates = {
-    points: wallet.points + amount,
-    last_deposit: amount
-  };
+  await supabase.from("wallets").update({
+    points: wallet.points + amount
+  }).eq("user_id", user.id);
 
-  if (!wallet.first_deposit_at) {
-    updates.first_deposit_at = new Date().toISOString();
-  }
-
-  await supabase
-    .from("wallets")
-    .update(updates)
-    .eq("user_id", user.id);
-
-  /* حفظ الإيداع */
   await supabase.from("deposits").insert({
     user_id: user.id,
     amount_usd: amount,
-    txid,
+    txid: txid,
     status: "approved"
   });
 
   msg.innerText = "✅ تم الشحن بنجاح";
+};
+
+/* =====================
+   طلب سحب
+===================== */
+document.getElementById("withdrawBtn").onclick = async () => {
+
+  const points = Number(document.getElementById("wdPoints").value);
+  const address = document.getElementById("wdAddress").value.trim();
+
+  if (!points || points <= 0 || !address) {
+    alert("❌ أدخل البيانات");
+    return;
+  }
+
+  const { data: wallet } = await supabase
+    .from("wallets")
+    .select("points, first_deposit_at")
+    .eq("user_id", user.id)
+    .single();
+
+  if (!wallet || !wallet.first_deposit_at) {
+    alert("❌ يجب الشحن أولاً");
+    return;
+  }
+
+  const firstDate = new Date(wallet.first_deposit_at);
+  const diffDays = (new Date() - firstDate) / (1000 * 60 * 60 * 24);
+
+  if (diffDays < 35) {
+    alert(`⏳ السحب بعد ${Math.ceil(35 - diffDays)} يوم`);
+    return;
+  }
+
+  if (points > wallet.points) {
+    alert("❌ الرصيد غير كافي");
+    return;
+  }
+
+  await supabase.from("withdrawals").insert({
+    user_id: user.id,
+    points: points,
+    wallet_address: address,
+    status: "pending"
+  });
+
+  alert("✅ تم إرسال طلب السحب");
+  location.reload();
 };
 </script>
 
