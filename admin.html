@@ -75,9 +75,7 @@ async function loadAds() {
       <b>${ad.title}</b><br>
       نقاط: ${ad.reward_points}<br>
       الحالة: ${ad.is_active ? "مفعل" : "موقف"}<br>
-      <button class="btn btn-ghost">
-        ${ad.is_active ? "إيقاف" : "تفعيل"}
-      </button>
+      <button class="btn btn-ghost">${ad.is_active ? "إيقاف" : "تفعيل"}</button>
       <hr>
     `;
 
@@ -120,20 +118,19 @@ async function loadDeposits() {
     `;
 
     div.querySelector("button").onclick = async () => {
-
-      // جلب أو إنشاء المحفظة
       let { data: wallet } = await supabase
         .from("wallets")
-        .select("points")
+        .select("points, last_deposit")
         .eq("user_id", d.user_id)
         .single();
 
       if (!wallet) {
         await supabase.from("wallets").insert({
           user_id: d.user_id,
-          points: 0
+          points: 0,
+          last_deposit: 0
         });
-        wallet = { points: 0 };
+        wallet = { points: 0, last_deposit: 0 };
       }
 
       const amount = Number(d.amount_usd);
@@ -142,19 +139,21 @@ async function loadDeposits() {
         return;
       }
 
-      // إضافة الرصيد
+      // تحديث الرصيد وآخر شحن
       await supabase
         .from("wallets")
-        .update({ points: wallet.points + amount })
+        .update({
+          points: wallet.points + amount,
+          last_deposit: amount
+        })
         .eq("user_id", d.user_id);
 
-      // تحديث حالة الطلب
       await supabase
         .from("deposits")
         .update({ status: "approved" })
         .eq("id", d.id);
 
-      alert("✅ تم شحن الرصيد");
+      alert("✅ تم شحن الرصيد وتحديث آخر شحن");
       loadDeposits();
     };
 
@@ -163,7 +162,7 @@ async function loadDeposits() {
 }
 
 /* =========================
-   طلبات السحب (مع شرط 35 يوم)
+   طلبات السحب
 ========================= */
 async function loadWithdrawals() {
   const box = document.getElementById("withdrawalsList");
@@ -189,32 +188,6 @@ async function loadWithdrawals() {
     `;
 
     div.querySelector("button").onclick = async () => {
-
-      // 🔒 شرط 35 يوم من أول شحن
-      const { data: firstDeposit } = await supabase
-        .from("deposits")
-        .select("created_at")
-        .eq("user_id", w.user_id)
-        .eq("status", "approved")
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .single();
-
-      if (!firstDeposit) {
-        alert("لا يوجد شحن معتمد لهذا المستخدم");
-        return;
-      }
-
-      const firstDate = new Date(firstDeposit.created_at);
-      const now = new Date();
-      const diffDays = Math.floor((now - firstDate) / (1000 * 60 * 60 * 24));
-
-      if (diffDays < 35) {
-        alert(`❌ لا يمكن السحب إلا بعد 35 يوم من أول شحن\nالمتبقي: ${35 - diffDays} يوم`);
-        return;
-      }
-
-      // جلب محفظة المستخدم
       let { data: wallet } = await supabase
         .from("wallets")
         .select("points")
@@ -232,13 +205,11 @@ async function loadWithdrawals() {
         return;
       }
 
-      // خصم الرصيد
       await supabase
         .from("wallets")
         .update({ points: wallet.points - withdrawPoints })
         .eq("user_id", w.user_id);
 
-      // تحديث حالة السحب
       await supabase
         .from("withdrawals")
         .update({ status: "paid" })
