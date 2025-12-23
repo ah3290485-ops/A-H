@@ -9,17 +9,20 @@
 <body>
 
 <div class="container">
+
   <div class="brand">
     <div class="logo"></div>
     <div>
-      <h1>الإعلانات</h1>
-      <p class="small">يمكنك أخذ النقاط مرة واحدة كل 24 ساعة (بعد الشحن)</p>
+      <h1>📺 الإعلانات</h1>
+      <p class="small">يمكنك الربح مرة واحدة كل 24 ساعة</p>
     </div>
   </div>
 
-  <div id="adsList"></div>
+  <div id="adsBox">تحميل...</div>
+
 </div>
 
+<!-- شريط التنقل -->
 <nav class="bottom-nav">
   <div class="nav-wrap">
     <a class="nav-item" href="dashboard.html">🏠<div>الرئيسية</div></a>
@@ -33,122 +36,133 @@
 import { supabase } from "./assets/supabaseClient.js";
 
 /* =========================
-   التحقق من تسجيل الدخول
+   تحقق تسجيل الدخول
 ========================= */
 const { data: { user } } = await supabase.auth.getUser();
 if (!user) window.location.href = "login.html";
 
+const box = document.getElementById("adsBox");
+
 /* =========================
-   التحقق من الشحن
-   (لا إعلانات بدون شحن)
+   جلب المحفظة
 ========================= */
 const { data: wallet } = await supabase
   .from("wallets")
-  .select("points")
+  .select("points, last_deposit")
   .eq("user_id", user.id)
   .single();
 
-const box = document.getElementById("adsList");
-
-if (!wallet || wallet.points <= 0) {
+/* =========================
+   منع بدون شحن
+========================= */
+if (!wallet || !wallet.last_deposit || wallet.last_deposit < 100) {
   box.innerHTML = `
     <div class="card">
       <h3>🔒 الإعلانات مقفلة</h3>
       <p class="small">
-        يجب شحن حسابك أولاً حتى تتمكن من مشاهدة الإعلانات وكسب النقاط
+        يجب شحن <b>100 نقطة</b> على الأقل لتفعيل الإعلانات
       </p>
-      <a href="wallet.html" class="btn btn-primary">
-        شحن الآن
-      </a>
+      <a href="wallet.html" class="btn btn-primary">شحن الآن</a>
     </div>
   `;
-  throw new Error("User has no balance");
+  throw new Error("No deposit");
 }
 
 /* =========================
-   جلب الإعلانات المفعّلة
+   حساب الربح اليومي
+========================= */
+const dailyReward = Math.floor(wallet.last_deposit / 100) * 3;
+
+/* =========================
+   جلب الإعلان المفعّل
 ========================= */
 const { data: ads } = await supabase
   .from("ads")
   .select("*")
-  .eq("is_active", true);
+  .eq("is_active", true)
+  .limit(1);
 
 if (!ads || ads.length === 0) {
-  box.innerHTML = "<div class='card'>لا يوجد إعلانات حالياً</div>";
-} else {
+  box.innerHTML = `<div class="card">لا يوجد إعلانات حالياً</div>`;
+  throw new Error("No ads");
+}
 
-  for (const ad of ads) {
+const ad = ads[0];
 
-    // جلب آخر مشاهدة للإعلان
-    const { data: view } = await supabase
-      .from("ad_views")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("ad_id", ad.id)
-      .single();
+/* =========================
+   التحقق من آخر مشاهدة
+========================= */
+const { data: view } = await supabase
+  .from("ad_views")
+  .select("*")
+  .eq("user_id", user.id)
+  .eq("ad_id", ad.id)
+  .single();
 
-    let canClaim = true;
-    let msg = "";
+let canClaim = true;
+let message = "";
 
-    if (view) {
-      const last = new Date(view.last_view);
-      const now = new Date();
-      const diffHours = (now - last) / (1000 * 60 * 60);
+if (view) {
+  const last = new Date(view.last_view);
+  const now = new Date();
+  const diff = (now - last) / (1000 * 60 * 60);
 
-      if (diffHours < 24) {
-        canClaim = false;
-        const remaining = Math.ceil(24 - diffHours);
-        msg = `يمكنك إعادة المحاولة بعد ${remaining} ساعة`;
-      }
-    }
-
-    const card = document.createElement("div");
-    card.className = "card";
-
-    card.innerHTML = `
-      <h3>${ad.title}</h3>
-      <a class="btn btn-ghost" target="_blank" href="${ad.youtube_url}">
-        ▶️ مشاهدة الإعلان
-      </a>
-      <div style="height:10px"></div>
-      <button class="btn btn-primary" ${!canClaim ? "disabled" : ""}>
-        ${canClaim ? "أخذ " + ad.reward_points + " نقاط" : msg}
-      </button>
-    `;
-
-    const btn = card.querySelector("button");
-
-    if (canClaim) {
-      btn.onclick = async () => {
-
-        // إضافة النقاط
-        await supabase
-          .from("wallets")
-          .update({ points: wallet.points + ad.reward_points })
-          .eq("user_id", user.id);
-
-        // تحديث أو إدخال سجل المشاهدة
-        if (view) {
-          await supabase
-            .from("ad_views")
-            .update({ last_view: new Date() })
-            .eq("id", view.id);
-        } else {
-          await supabase
-            .from("ad_views")
-            .insert({
-              user_id: user.id,
-              ad_id: ad.id
-            });
-        }
-
-        alert("تم إضافة النقاط ✅");
-        location.reload();
-      };
-    }
-
-    box.appendChild(card);
+  if (diff < 24) {
+    canClaim = false;
+    const remain = Math.ceil(24 - diff);
+    message = `⏳ متبقي ${remain} ساعة`;
   }
+}
+
+/* =========================
+   عرض الإعلان
+========================= */
+box.innerHTML = `
+  <div class="card">
+    <h3>${ad.title}</h3>
+
+    <a href="${ad.youtube_url}" target="_blank" class="btn btn-ghost">
+      ▶️ مشاهدة الإعلان
+    </a>
+
+    <div style="height:10px"></div>
+
+    <button id="claimBtn" class="btn btn-primary" ${!canClaim ? "disabled" : ""}>
+      ${canClaim ? `أخذ ${dailyReward} نقاط` : message}
+    </button>
+  </div>
+`;
+
+/* =========================
+   أخذ النقاط
+========================= */
+if (canClaim) {
+  document.getElementById("claimBtn").onclick = async () => {
+
+    // تحديث الرصيد
+    await supabase
+      .from("wallets")
+      .update({ points: wallet.points + dailyReward })
+      .eq("user_id", user.id);
+
+    // تحديث سجل المشاهدة
+    if (view) {
+      await supabase
+        .from("ad_views")
+        .update({ last_view: new Date() })
+        .eq("id", view.id);
+    } else {
+      await supabase
+        .from("ad_views")
+        .insert({
+          user_id: user.id,
+          ad_id: ad.id
+        });
+    }
+
+    alert("✅ تم إضافة النقاط");
+    location.reload();
+  };
 }
 </script>
 
