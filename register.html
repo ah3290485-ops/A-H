@@ -42,33 +42,48 @@
 </div>
 
 <script type="module">
-  import { supabase } from "./assets/supabaseClient.js";
+import { supabase } from "./assets/supabaseClient.js";
 
-  document.getElementById("registerBtn").addEventListener("click", async () => {
-    const email = document.getElementById("email").value.trim();
-    const password = document.getElementById("password").value;
+document.getElementById("registerBtn").addEventListener("click", async () => {
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+  const full_name = document.getElementById("name").value.trim();
 
-    if (!email || !password) {
-      alert("يرجى إدخال الإيميل وكلمة المرور");
-      return;
-    }
+  if (!email || !password) {
+    alert("يرجى إدخال الإيميل وكلمة المرور");
+    return;
+  }
 
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: window.location.origin + "/login.html"
-      }
+  // 1️⃣ إنشاء حساب auth
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password
+  });
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  // 2️⃣ إنشاء سجل في جدول profiles
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .insert({
+      user_id: data.user.id,
+      email: data.user.email,
+      full_name: full_name || "",
+      level: "user"
     });
 
-    if (error) {
-      alert(error.message);
-      return;
-    }
+  if (profileError) {
+    console.error(profileError);
+    alert("تم إنشاء الحساب لكن حدث خطأ بإنشاء الملف الشخصي");
+    return;
+  }
 
-    alert("✅ تم إنشاء الحساب بنجاح\n📧 تفقد بريدك الإلكتروني وفعّل الحساب ثم سجّل دخول");
-    window.location.href = "login.html";
-  });
+  alert("✅ تم إنشاء الحساب بنجاح\n📧 يمكنك تسجيل الدخول الآن");
+  window.location.href = "login.html";
+});
 </script>
 
 </body>
