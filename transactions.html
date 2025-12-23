@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>سجل المعاملات</title>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<div class="container">
+
+  <div class="brand">
+    <div class="logo"></div>
+    <div>
+      <h1>📑 سجل المعاملات</h1>
+      <p class="small">جميع عمليات الإيداع والسحب</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>💳 الإيداعات</h3>
+    <div id="deposits">تحميل...</div>
+  </div>
+
+  <div class="card">
+    <h3>💸 السحوبات</h3>
+    <div id="withdrawals">تحميل...</div>
+  </div>
+
+  <a href="dashboard.html" class="btn btn-ghost">رجوع</a>
+</div>
+
+<script type="module">
+import { supabase } from "./assets/supabaseClient.js";
+
+const { data: { user } } = await supabase.auth.getUser();
+if (!user) window.location.href = "login.html";
+
+/* =====================
+   الإيداعات
+===================== */
+const depBox = document.getElementById("deposits");
+const { data: deps } = await supabase
+  .from("deposits")
+  .select("*")
+  .eq("user_id", user.id)
+  .order("created_at", { ascending: false });
+
+if (!deps || deps.length === 0) {
+  depBox.innerHTML = "لا يوجد إيداعات";
+} else {
+  depBox.innerHTML = "";
+  deps.forEach(d => {
+    depBox.innerHTML += `
+      <div class="row small">
+        <div>${d.amount_usd}$</div>
+        <div>${d.status}</div>
+        <div>${new Date(d.created_at).toLocaleDateString()}</div>
+      </div>
+      <hr>
+    `;
+  });
+}
+
+/* =====================
+   السحوبات
+===================== */
+const wBox = document.getElementById("withdrawals");
+const { data: wds } = await supabase
+  .from("withdrawals")
+  .select("*")
+  .eq("user_id", user.id)
+  .order("created_at", { ascending: false });
+
+if (!wds || wds.length === 0) {
+  wBox.innerHTML = "لا يوجد سحوبات";
+} else {
+  wBox.innerHTML = "";
+  wds.forEach(w => {
+    wBox.innerHTML += `
+      <div class="row small">
+        <div>${w.points} نقطة</div>
+        <div>${w.status}</div>
+        <div>${new Date(w.created_at).toLocaleDateString()}</div>
+      </div>
+      <hr>
+    `;
+  });
+}
+</script>
+
+</body>
+</html>
