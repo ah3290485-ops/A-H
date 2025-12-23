@@ -58,7 +58,10 @@ if (!ADMIN_EMAILS.includes(user.email)) {
 ========================= */
 async function loadAds() {
   const box = document.getElementById("adsList");
-  const { data } = await supabase.from("ads").select("*").order("id",{ascending:false});
+  const { data } = await supabase
+    .from("ads")
+    .select("*")
+    .order("id", { ascending: false });
 
   if (!data || data.length === 0) {
     box.innerHTML = "لا يوجد إعلانات";
@@ -72,12 +75,15 @@ async function loadAds() {
       <b>${ad.title}</b><br>
       نقاط: ${ad.reward_points}<br>
       الحالة: ${ad.is_active ? "مفعل" : "موقف"}<br>
-      <button class="btn btn-ghost">${ad.is_active ? "إيقاف" : "تفعيل"}</button>
+      <button class="btn btn-ghost">
+        ${ad.is_active ? "إيقاف" : "تفعيل"}
+      </button>
       <hr>
     `;
 
     div.querySelector("button").onclick = async () => {
-      await supabase.from("ads")
+      await supabase
+        .from("ads")
         .update({ is_active: !ad.is_active })
         .eq("id", ad.id);
       loadAds();
@@ -88,14 +94,14 @@ async function loadAds() {
 }
 
 /* =========================
-   طلبات الشحن (المهم)
+   طلبات الشحن
 ========================= */
 async function loadDeposits() {
   const box = document.getElementById("depositsList");
   const { data } = await supabase
     .from("deposits")
     .select("*")
-    .eq("status","pending");
+    .eq("status", "pending");
 
   if (!data || data.length === 0) {
     box.innerHTML = "لا يوجد طلبات";
@@ -115,7 +121,7 @@ async function loadDeposits() {
 
     div.querySelector("button").onclick = async () => {
 
-      // 1️⃣ جلب أو إنشاء محفظة
+      // جلب أو إنشاء المحفظة
       let { data: wallet } = await supabase
         .from("wallets")
         .select("points")
@@ -130,21 +136,25 @@ async function loadDeposits() {
         wallet = { points: 0 };
       }
 
-      // 2️⃣ إضافة الرصيد
-      const newPoints = Number(wallet.points) + Number(d.amount_usd);
+      const amount = Number(d.amount_usd);
+      if (isNaN(amount) || amount <= 0) {
+        alert("قيمة الشحن غير صحيحة");
+        return;
+      }
 
+      // إضافة الرصيد
       await supabase
         .from("wallets")
-        .update({ points: newPoints })
+        .update({ points: wallet.points + amount })
         .eq("user_id", d.user_id);
 
-      // 3️⃣ تحديث حالة الطلب
+      // تحديث حالة الطلب
       await supabase
         .from("deposits")
-        .update({ status:"approved" })
+        .update({ status: "approved" })
         .eq("id", d.id);
 
-      alert("✅ تم شحن الرصيد بنجاح");
+      alert("✅ تم شحن الرصيد");
       loadDeposits();
     };
 
@@ -153,14 +163,14 @@ async function loadDeposits() {
 }
 
 /* =========================
-   طلبات السحب
+   طلبات السحب (مع شرط 35 يوم)
 ========================= */
 async function loadWithdrawals() {
   const box = document.getElementById("withdrawalsList");
   const { data } = await supabase
     .from("withdrawals")
     .select("*")
-    .eq("status","pending");
+    .eq("status", "pending");
 
   if (!data || data.length === 0) {
     box.innerHTML = "لا يوجد طلبات";
@@ -179,9 +189,62 @@ async function loadWithdrawals() {
     `;
 
     div.querySelector("button").onclick = async () => {
-      await supabase.from("withdrawals")
-        .update({ status:"paid" })
+
+      // 🔒 شرط 35 يوم من أول شحن
+      const { data: firstDeposit } = await supabase
+        .from("deposits")
+        .select("created_at")
+        .eq("user_id", w.user_id)
+        .eq("status", "approved")
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .single();
+
+      if (!firstDeposit) {
+        alert("لا يوجد شحن معتمد لهذا المستخدم");
+        return;
+      }
+
+      const firstDate = new Date(firstDeposit.created_at);
+      const now = new Date();
+      const diffDays = Math.floor((now - firstDate) / (1000 * 60 * 60 * 24));
+
+      if (diffDays < 35) {
+        alert(`❌ لا يمكن السحب إلا بعد 35 يوم من أول شحن\nالمتبقي: ${35 - diffDays} يوم`);
+        return;
+      }
+
+      // جلب محفظة المستخدم
+      let { data: wallet } = await supabase
+        .from("wallets")
+        .select("points")
+        .eq("user_id", w.user_id)
+        .single();
+
+      if (!wallet) {
+        alert("محفظة المستخدم غير موجودة");
+        return;
+      }
+
+      const withdrawPoints = Number(w.points);
+      if (wallet.points < withdrawPoints) {
+        alert("الرصيد غير كافٍ");
+        return;
+      }
+
+      // خصم الرصيد
+      await supabase
+        .from("wallets")
+        .update({ points: wallet.points - withdrawPoints })
+        .eq("user_id", w.user_id);
+
+      // تحديث حالة السحب
+      await supabase
+        .from("withdrawals")
+        .update({ status: "paid" })
         .eq("id", w.id);
+
+      alert("✅ تم السحب وخصم الرصيد");
       loadWithdrawals();
     };
 
