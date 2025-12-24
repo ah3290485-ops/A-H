@@ -44,37 +44,50 @@ if (!user) window.location.href = "login.html";
 const box = document.getElementById("adsBox");
 
 /* =========================
-   جلب المحفظة
+   جلب المحفظة (نقاط فقط)
 ========================= */
 const { data: wallet } = await supabase
   .from("wallets")
-  .select("points, last_deposit")
+  .select("points")
   .eq("user_id", user.id)
   .single();
 
 /* =========================
-   منع بدون شحن
+   منع بدون نقاط
 ========================= */
-if (!wallet || !wallet.last_deposit || wallet.last_deposit < 100) {
+if (!wallet || wallet.points <= 0) {
   box.innerHTML = `
     <div class="card">
       <h3>🔒 الإعلانات مقفلة</h3>
       <p class="small">
-        يجب شحن <b>100 نقطة</b> على الأقل لتفعيل الإعلانات
+        يجب أن يكون لديك نقاط لتفعيل الإعلانات.<br>
+        يمكنك الشحن أو انتظار إضافة نقاط من الإدارة.
       </p>
-      <a href="wallet.html" class="btn btn-primary">شحن الآن</a>
     </div>
   `;
-  throw new Error("No deposit");
+  throw new Error("No points");
 }
 
 /* =========================
    حساب الربح اليومي
+   كل 100 نقطة = 3 نقاط
 ========================= */
-const dailyReward = Math.floor(wallet.last_deposit / 100) * 3;
+const dailyReward = Math.floor(wallet.points / 100) * 3;
+
+if (dailyReward <= 0) {
+  box.innerHTML = `
+    <div class="card">
+      <h3>⚠️ رصيد غير كافٍ</h3>
+      <p class="small">
+        الحد الأدنى للربح هو امتلاك 100 نقطة
+      </p>
+    </div>
+  `;
+  throw new Error("Not enough points");
+}
 
 /* =========================
-   جلب الإعلان المفعّل
+   جلب إعلان مفعّل واحد
 ========================= */
 const { data: ads } = await supabase
   .from("ads")
@@ -90,7 +103,7 @@ if (!ads || ads.length === 0) {
 const ad = ads[0];
 
 /* =========================
-   التحقق من آخر مشاهدة
+   التحقق من آخر مشاهدة (24 ساعة)
 ========================= */
 const { data: view } = await supabase
   .from("ad_views")
@@ -130,6 +143,10 @@ box.innerHTML = `
     <button id="claimBtn" class="btn btn-primary" ${!canClaim ? "disabled" : ""}>
       ${canClaim ? `أخذ ${dailyReward} نقاط` : message}
     </button>
+
+    <p class="small" style="margin-top:10px;opacity:.7;text-align:center">
+      💱 كل 100 نقطة = 3 نقاط ربح يومي
+    </p>
   </div>
 `;
 
@@ -139,13 +156,11 @@ box.innerHTML = `
 if (canClaim) {
   document.getElementById("claimBtn").onclick = async () => {
 
-    // تحديث الرصيد
     await supabase
       .from("wallets")
       .update({ points: wallet.points + dailyReward })
       .eq("user_id", user.id);
 
-    // تحديث سجل المشاهدة
     if (view) {
       await supabase
         .from("ad_views")
