@@ -24,7 +24,7 @@
     <div class="row">
       <div>
         <div class="small">رصيد النقاط</div>
-        <div id="points" style="font-size:28px;font-weight:800">0</div>
+        <div id="points" style="font-size:28px;font-weight:800">تحميل...</div>
       </div>
       <div>
         <div class="small">الحالة</div>
@@ -56,25 +56,24 @@
 
   <!-- الأزرار -->
   <div class="card">
-  <div class="action-row">
+    <div class="action-row">
 
-    <a href="gold.html" class="action-btn gold">
-      🪙<span>الذهب</span>
-    </a>
+      <a href="gold.html" class="action-btn gold">
+        🪙<span>الذهب</span>
+      </a>
 
-    <a href="about.html" class="action-btn about">
-      📞<span>من نحن</span>
-    </a>
+      <a href="about.html" class="action-btn about">
+        📞<span>من نحن</span>
+      </a>
 
-    <a href="admin.html" class="action-btn admin">
-      🛠️<span>الأدمن</span>
-    </a>
+      <a href="admin.html" id="adminBtn" class="action-btn admin" style="display:none">
+        🛠️<span>الأدمن</span>
+      </a>
 
+    </div>
   </div>
-</div>
 
-    <button id="logoutBtn" class="btn btn-danger">تسجيل خروج</button>
-  </div>
+  <button id="logoutBtn" class="btn btn-danger">تسجيل خروج</button>
 
 </div>
 
@@ -115,27 +114,32 @@ document.getElementById("userEmail").innerText = user.email;
    زر الأدمن (إيميلك فقط)
 ========================= */
 if (user.email === "am.alsus1995@gmail.com") {
-  document.getElementById("adminBtn").style.display = "block";
+  document.getElementById("adminBtn").style.display = "flex";
 }
 
 /* =========================
    جلب أو إنشاء المحفظة
 ========================= */
-let { data: wallet } = await supabase
-  .from("wallets")
-  .select("points")
-  .eq("user_id", user.id)
-  .single();
+async function loadPoints() {
+  let { data: wallet, error } = await supabase
+    .from("wallets")
+    .select("points")
+    .eq("user_id", user.id)
+    .single();
 
-if (!wallet) {
-  await supabase.from("wallets").insert({
-    user_id: user.id,
-    points: 0
-  });
-  wallet = { points: 0 };
+  if (error || !wallet) {
+    await supabase.from("wallets").insert({
+      user_id: user.id,
+      points: 0
+    });
+    wallet = { points: 0 };
+  }
+
+  document.getElementById("points").innerText =
+    Number(wallet.points).toLocaleString();
 }
 
-document.getElementById("points").innerText = wallet.points;
+loadPoints();
 
 /* =========================
    تسجيل الخروج
