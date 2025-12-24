@@ -9,12 +9,12 @@
 <body>
 
 <div class="container">
+
   <div class="brand">
     <div class="logo"></div>
     <div>
       <h1>🛠️ لوحة الإدارة</h1>
-      <p class="small">إدارة المستخدمين – الشحن – السحب</p>
-      <p class="small" id="adminEmail"></p>
+      <p class="small" id="adminEmail">...</p>
     </div>
   </div>
 
@@ -24,9 +24,23 @@
 
     <input id="searchEmail" type="text" placeholder="بحث بالإيميل">
     <div style="height:10px"></div>
-    <button id="loadUsers" class="btn btn-primary">تحديث المستخدمين</button>
 
-    <div id="usersList" class="small" style="margin-top:10px">تحميل...</div>
+    <button id="loadUsers" class="btn btn-primary">
+      🔄 تحديث المستخدمين
+    </button>
+
+    <div style="height:10px"></div>
+    <div id="usersList">تحميل...</div>
+  </div>
+
+  <!-- زر إضافة إعلان -->
+  <div class="card">
+    <h3>📺 الإعلانات</h3>
+    <button class="btn btn-primary" onclick="location.href='add-ad.html'">
+      ➕ إضافة إعلان
+    </button>
+    <div style="height:10px"></div>
+    <div id="adsList">تحميل...</div>
   </div>
 
   <!-- طلبات الشحن -->
@@ -38,7 +52,7 @@
   <!-- طلبات السحب -->
   <div class="card">
     <h3>💸 طلبات السحب</h3>
-    <p class="small">⚠️ السحب مسموح بعد 35 يوم من أول شحن</p>
+    <div class="small">⚠️ السحب بعد 35 يوم من أول شحن</div>
     <div id="withdrawalsList">تحميل...</div>
   </div>
 
@@ -60,65 +74,113 @@ if (user.email !== ADMIN_EMAIL) {
   location.href = "dashboard.html";
 }
 
-document.getElementById("adminEmail").innerText =
-  "أنت مسجل كأدمن: " + user.email;
+document.getElementById("adminEmail").innerText = user.email;
 
 /* =====================
-   تحميل المستخدمين
+   المستخدمين
 ===================== */
 async function loadUsers() {
   const box = document.getElementById("usersList");
-  box.innerText = "جاري التحميل...";
+  box.innerText = "تحميل...";
 
   const emailSearch = document.getElementById("searchEmail").value.trim();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("profiles")
     .select(`
       user_id,
+      email,
       full_name,
       level,
-      wallets ( points ),
-      auth_users:auth.users ( email )
+      wallets(points)
     `);
+
+  if (emailSearch) {
+    query = query.ilike("email", `%${emailSearch}%`);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     box.innerText = "خطأ: " + error.message;
     return;
   }
 
-  let users = data;
-
-  if (emailSearch) {
-    users = users.filter(u =>
-      u.auth_users?.email?.includes(emailSearch)
-    );
-  }
-
-  if (users.length === 0) {
+  if (!data || data.length === 0) {
     box.innerText = "لا يوجد مستخدمين";
     return;
   }
 
   box.innerHTML = "";
-
-  users.forEach(u => {
+  data.forEach(u => {
     const div = document.createElement("div");
-    div.style.borderBottom = "1px solid #333";
-    div.style.padding = "8px 0";
-
     div.innerHTML = `
-      📧 ${u.auth_users?.email || "-"}<br>
-      👤 الاسم: ${u.full_name || "-"}<br>
-      ⭐ المستوى: ${u.level || "عادي"}<br>
-      💰 الرصيد: ${u.wallets?.points || 0} نقطة
+      <b>${u.email}</b><br>
+      النقاط: ${u.wallets?.points || 0}<br>
+      المستوى: ${u.level}<br>
+      <button class="btn btn-ghost">➕ إضافة 10 نقاط</button>
+      <hr>
     `;
+
+    div.querySelector("button").onclick = async () => {
+      const current = u.wallets?.points || 0;
+      await supabase
+        .from("wallets")
+        .update({ points: current + 10 })
+        .eq("user_id", u.user_id);
+
+      loadUsers();
+    };
 
     box.appendChild(div);
   });
 }
 
 document.getElementById("loadUsers").onclick = loadUsers;
+loadUsers();
+
+/* =====================
+   الإعلانات
+===================== */
+async function loadAds() {
+  const box = document.getElementById("adsList");
+
+  const { data } = await supabase
+    .from("ads")
+    .select("*")
+    .order("id", { ascending: false });
+
+  if (!data || data.length === 0) {
+    box.innerText = "لا يوجد إعلانات";
+    return;
+  }
+
+  box.innerHTML = "";
+  data.forEach(ad => {
+    const div = document.createElement("div");
+    div.innerHTML = `
+      <b>${ad.title}</b><br>
+      مكافأة: ${ad.reward_points} نقاط<br>
+      الحالة: ${ad.is_active ? "مفعل" : "موقف"}<br>
+      <button class="btn btn-ghost">
+        ${ad.is_active ? "إيقاف" : "تفعيل"}
+      </button>
+      <hr>
+    `;
+
+    div.querySelector("button").onclick = async () => {
+      await supabase
+        .from("ads")
+        .update({ is_active: !ad.is_active })
+        .eq("id", ad.id);
+
+      loadAds();
+    };
+
+    box.appendChild(div);
+  });
+}
+loadAds();
 
 /* =====================
    طلبات الشحن
@@ -137,41 +199,28 @@ async function loadDeposits() {
   }
 
   box.innerHTML = "";
-
   data.forEach(d => {
     const div = document.createElement("div");
     div.innerHTML = `
       المستخدم: ${d.user_id}<br>
-      المبلغ: ${d.amount_usd}$<br>
-      TXID: ${d.txid || "-"}<br>
+      المبلغ: ${d.amount}<br>
       <button class="btn btn-primary">موافقة</button>
       <hr>
     `;
 
     div.querySelector("button").onclick = async () => {
-      const { data: wallet } = await supabase
-        .from("wallets")
-        .select("points")
-        .eq("user_id", d.user_id)
-        .single();
-
-      await supabase
-        .from("wallets")
-        .update({ points: (wallet?.points || 0) + d.amount_usd })
-        .eq("user_id", d.user_id);
-
       await supabase
         .from("deposits")
         .update({ status: "approved" })
         .eq("id", d.id);
 
-      alert("✅ تم الشحن");
       loadDeposits();
     };
 
     box.appendChild(div);
   });
 }
+loadDeposits();
 
 /* =====================
    طلبات السحب
@@ -190,50 +239,39 @@ async function loadWithdrawals() {
   }
 
   box.innerHTML = "";
-
   data.forEach(w => {
     const div = document.createElement("div");
     div.innerHTML = `
       المستخدم: ${w.user_id}<br>
-      النقاط: ${w.points}<br>
-      العنوان: ${w.wallet_address}<br>
-      <button class="btn btn-primary">تم الدفع</button>
+      المبلغ: ${w.amount}<br>
+      <button class="btn btn-primary">موافقة</button>
+      <button class="btn btn-danger">رفض</button>
       <hr>
     `;
 
-    div.querySelector("button").onclick = async () => {
-      const { data: wallet } = await supabase
-        .from("wallets")
-        .select("points")
-        .eq("user_id", w.user_id)
-        .single();
+    const [approveBtn, rejectBtn] = div.querySelectorAll("button");
 
-      if (!wallet || wallet.points < w.points) {
-        alert("الرصيد غير كافٍ");
-        return;
-      }
-
-      await supabase
-        .from("wallets")
-        .update({ points: wallet.points - w.points })
-        .eq("user_id", w.user_id);
-
+    approveBtn.onclick = async () => {
       await supabase
         .from("withdrawals")
-        .update({ status: "paid" })
+        .update({ status: "approved" })
         .eq("id", w.id);
+      loadWithdrawals();
+    };
 
-      alert("✅ تم السحب");
+    rejectBtn.onclick = async () => {
+      await supabase
+        .from("withdrawals")
+        .update({ status: "rejected" })
+        .eq("id", w.id);
       loadWithdrawals();
     };
 
     box.appendChild(div);
   });
 }
-
-loadUsers();
-loadDeposits();
 loadWithdrawals();
+
 </script>
 
 </body>
