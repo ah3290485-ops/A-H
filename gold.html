@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>الذهب</title>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<div class="container" id="app" style="display:none">
+
+  <div class="brand">
+    <div class="logo"></div>
+    <div>
+      <h1>🪙 تداول الذهب</h1>
+      <p class="small">سعر الغرام: <b>135 نقطة</b></p>
+    </div>
+  </div>
+
+  <!-- الرصيد -->
+  <div class="card">
+    <h3>رصيدك</h3>
+    <div id="balances">تحميل...</div>
+  </div>
+
+  <!-- شراء الذهب -->
+  <div class="card">
+    <h3>🟢 شراء ذهب</h3>
+    <input id="buyPoints" type="number" placeholder="عدد النقاط">
+    <div style="height:10px"></div>
+    <button id="buyBtn" class="btn btn-primary">شراء</button>
+  </div>
+
+  <!-- بيع الذهب -->
+  <div class="card">
+    <h3>🔴 بيع ذهب</h3>
+    <input id="sellGrams" type="number" step="0.01" placeholder="عدد الغرامات">
+    <div style="height:10px"></div>
+    <button id="sellBtn" class="btn btn-danger">بيع</button>
+  </div>
+
+  <!-- سجل العمليات -->
+  <div class="card">
+    <h3>📜 سجل معاملات الذهب</h3>
+    <div id="history">تحميل...</div>
+  </div>
+
+</div>
+
+<!-- شريط التنقل -->
+<nav class="bottom-nav">
+  <div class="nav-wrap">
+    <a class="nav-item" href="dashboard.html">🏠<div>الرئيسية</div></a>
+    <a class="nav-item active" href="gold.html">🪙<div>الذهب</div></a>
+    <a class="nav-item" href="wallet.html">👛<div>محفظتي</div></a>
+    <a class="nav-item" href="profile.html">👤<div>الملف الشخصي</div></a>
+  </div>
+</nav>
+
+<script type="module">
+import { supabase } from "./assets/supabaseClient.js";
+
+const GOLD_PRICE = 135;
+const MIN_ACTIVATION = 500;
+
+/* =====================
+   تحقق تسجيل الدخول
+===================== */
+const { data: { user } } = await supabase.auth.getUser();
+if (!user) location.href = "login.html";
+
+/* =====================
+   قفل الذهب حتى 500$ أو تفعيل الأدمن
+===================== */
+const { data: walletCheck } = await supabase
+  .from("wallets")
+  .select("points, gold_enabled")
+  .eq("user_id", user.id)
+  .single();
+
+if (
+  !walletCheck ||
+  (!walletCheck.gold_enabled && walletCheck.points < MIN_ACTIVATION)
+) {
+  document.body.innerHTML = `
+    <div style="
+      max-width:420px;
+      margin:80px auto;
+      background:#111;
+      padding:20px;
+      border-radius:14px;
+      text-align:center;
+      color:#fff
+    ">
+      <h2>🔒 الذهب مقفل</h2>
+      <p style="opacity:.85">
+        يجب شحن <b>500 دولار</b> أو انتظار تفعيل الأدمن
+      </p>
+      <a href="wallet.html"
+         style="
+           display:inline-block;
+           margin-top:15px;
+           padding:10px
