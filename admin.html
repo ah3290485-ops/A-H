@@ -25,46 +25,58 @@
     <input id="searchEmail" type="text" placeholder="بحث بالإيميل">
     <div style="height:10px"></div>
 
-    <button id="loadUsers" class="btn btn-primary">
-      🔄 تحديث المستخدمين
-    </button>
+    <button id="loadUsers" class="btn btn-primary">🔄 تحديث المستخدمين</button>
 
     <div style="height:10px"></div>
     <div id="usersList">تحميل...</div>
   </div>
 
-  <!-- زر إضافة إعلان -->
+  <!-- تعديل رصيد مستخدم -->
+  <div class="card">
+    <h3>➕ تعديل رصيد المستخدم</h3>
+
+    <input id="targetUserId" type="text" placeholder="User ID">
+    <div style="height:8px"></div>
+
+    <input id="pointsAmount" type="number" placeholder="عدد النقاط">
+    <div style="height:10px"></div>
+
+    <button id="addPointsBtn" class="btn btn-primary">إضافة نقاط</button>
+    <div style="height:6px"></div>
+    <button id="removePointsBtn" class="btn btn-danger">خصم نقاط</button>
+  </div>
+
+  <!-- الإعلانات -->
   <div class="card">
     <h3>📺 الإعلانات</h3>
     <button class="btn btn-primary" onclick="location.href='add-ad.html'">
       ➕ إضافة إعلان
     </button>
     <div style="height:10px"></div>
-    <div id="adsList">تحميل...</div>
+    <div id="adsList">—</div>
   </div>
 
   <!-- طلبات الشحن -->
   <div class="card">
     <h3>💳 طلبات الشحن</h3>
-    <div id="depositsList">تحميل...</div>
+    <div id="depositsList">—</div>
   </div>
 
   <!-- طلبات السحب -->
   <div class="card">
     <h3>💸 طلبات السحب</h3>
     <div class="small">⚠️ السحب بعد 35 يوم من أول شحن</div>
-    <div id="withdrawalsList">تحميل...</div>
+    <div id="withdrawalsList">—</div>
   </div>
 
   <a href="dashboard.html" class="btn btn-ghost">⬅️ رجوع</a>
+
 </div>
 
 <script type="module">
 import { supabase } from "./assets/supabaseClient.js";
 
-/* =====================
-   حماية الأدمن
-===================== */
+/* ===== حماية الأدمن ===== */
 const ADMIN_EMAIL = "am.alsus1995@gmail.com";
 
 const { data: { user } } = await supabase.auth.getUser();
@@ -76,9 +88,7 @@ if (user.email !== ADMIN_EMAIL) {
 
 document.getElementById("adminEmail").innerText = user.email;
 
-/* =====================
-   المستخدمين
-===================== */
+/* ===== تحميل المستخدمين ===== */
 async function loadUsers() {
   const box = document.getElementById("usersList");
   box.innerText = "تحميل...";
@@ -113,165 +123,61 @@ async function loadUsers() {
 
   box.innerHTML = "";
   data.forEach(u => {
-    const div = document.createElement("div");
-    div.innerHTML = `
-      <b>${u.email}</b><br>
-      النقاط: ${u.wallets?.points || 0}<br>
-      المستوى: ${u.level}<br>
-      <button class="btn btn-ghost">➕ إضافة 10 نقاط</button>
-      <hr>
+    box.innerHTML += `
+      <div class="small">
+        📧 ${u.email}<br>
+        🆔 ${u.user_id}<br>
+        💰 الرصيد: ${u.wallets?.points || 0} نقطة
+        <hr>
+      </div>
     `;
-
-    div.querySelector("button").onclick = async () => {
-      const current = u.wallets?.points || 0;
-      await supabase
-        .from("wallets")
-        .update({ points: current + 10 })
-        .eq("user_id", u.user_id);
-
-      loadUsers();
-    };
-
-    box.appendChild(div);
   });
 }
 
 document.getElementById("loadUsers").onclick = loadUsers;
 loadUsers();
 
-/* =====================
-   الإعلانات
-===================== */
-async function loadAds() {
-  const box = document.getElementById("adsList");
+/* ===== إضافة / خصم نقاط ===== */
+document.getElementById("addPointsBtn").onclick = () => updatePoints(true);
+document.getElementById("removePointsBtn").onclick = () => updatePoints(false);
 
-  const { data } = await supabase
-    .from("ads")
-    .select("*")
-    .order("id", { ascending: false });
+async function updatePoints(isAdd) {
+  const userId = document.getElementById("targetUserId").value.trim();
+  const amount = Number(document.getElementById("pointsAmount").value);
 
-  if (!data || data.length === 0) {
-    box.innerText = "لا يوجد إعلانات";
+  if (!userId || !amount || amount <= 0) {
+    alert("❌ أدخل User ID وعدد نقاط صحيح");
     return;
   }
 
-  box.innerHTML = "";
-  data.forEach(ad => {
-    const div = document.createElement("div");
-    div.innerHTML = `
-      <b>${ad.title}</b><br>
-      مكافأة: ${ad.reward_points} نقاط<br>
-      الحالة: ${ad.is_active ? "مفعل" : "موقف"}<br>
-      <button class="btn btn-ghost">
-        ${ad.is_active ? "إيقاف" : "تفعيل"}
-      </button>
-      <hr>
-    `;
+  let { data: wallet } = await supabase
+    .from("wallets")
+    .select("points")
+    .eq("user_id", userId)
+    .single();
 
-    div.querySelector("button").onclick = async () => {
-      await supabase
-        .from("ads")
-        .update({ is_active: !ad.is_active })
-        .eq("id", ad.id);
-
-      loadAds();
-    };
-
-    box.appendChild(div);
-  });
-}
-loadAds();
-
-/* =====================
-   طلبات الشحن
-===================== */
-async function loadDeposits() {
-  const box = document.getElementById("depositsList");
-
-  const { data } = await supabase
-    .from("deposits")
-    .select("*")
-    .eq("status", "pending");
-
-  if (!data || data.length === 0) {
-    box.innerText = "لا يوجد طلبات";
+  if (!wallet) {
+    alert("❌ محفظة المستخدم غير موجودة");
     return;
   }
 
-  box.innerHTML = "";
-  data.forEach(d => {
-    const div = document.createElement("div");
-    div.innerHTML = `
-      المستخدم: ${d.user_id}<br>
-      المبلغ: ${d.amount}<br>
-      <button class="btn btn-primary">موافقة</button>
-      <hr>
-    `;
+  const newPoints = isAdd
+    ? wallet.points + amount
+    : wallet.points - amount;
 
-    div.querySelector("button").onclick = async () => {
-      await supabase
-        .from("deposits")
-        .update({ status: "approved" })
-        .eq("id", d.id);
-
-      loadDeposits();
-    };
-
-    box.appendChild(div);
-  });
-}
-loadDeposits();
-
-/* =====================
-   طلبات السحب
-===================== */
-async function loadWithdrawals() {
-  const box = document.getElementById("withdrawalsList");
-
-  const { data } = await supabase
-    .from("withdrawals")
-    .select("*")
-    .eq("status", "pending");
-
-  if (!data || data.length === 0) {
-    box.innerText = "لا يوجد طلبات";
+  if (newPoints < 0) {
+    alert("❌ لا يمكن أن يصبح الرصيد سالب");
     return;
   }
 
-  box.innerHTML = "";
-  data.forEach(w => {
-    const div = document.createElement("div");
-    div.innerHTML = `
-      المستخدم: ${w.user_id}<br>
-      المبلغ: ${w.amount}<br>
-      <button class="btn btn-primary">موافقة</button>
-      <button class="btn btn-danger">رفض</button>
-      <hr>
-    `;
+  await supabase
+    .from("wallets")
+    .update({ points: newPoints })
+    .eq("user_id", userId);
 
-    const [approveBtn, rejectBtn] = div.querySelectorAll("button");
-
-    approveBtn.onclick = async () => {
-      await supabase
-        .from("withdrawals")
-        .update({ status: "approved" })
-        .eq("id", w.id);
-      loadWithdrawals();
-    };
-
-    rejectBtn.onclick = async () => {
-      await supabase
-        .from("withdrawals")
-        .update({ status: "rejected" })
-        .eq("id", w.id);
-      loadWithdrawals();
-    };
-
-    box.appendChild(div);
-  });
+  alert("✅ تم تحديث الرصيد");
+  loadUsers();
 }
-loadWithdrawals();
-
 </script>
 
 </body>
