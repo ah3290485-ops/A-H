@@ -149,3 +149,47 @@ input{
   color: #000;
 }
 
+.action-row {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.action-btn {
+  flex: 1;
+  background: #1b1b2a;
+  color: #fff;
+  border-radius: 14px;
+  padding: 12px 8px;
+  text-align: center;
+  font-weight: 700;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transition: .2s;
+}
+
+.action-btn span {
+  font-size: 13px;
+}
+
+.action-btn:hover {
+  transform: translateY(-2px);
+  opacity: .9;
+}
+
+/* ألوان خاصة */
+.action-btn.gold {
+  background: linear-gradient(135deg, #d4af37, #b9962f);
+  color: #000;
+}
+
+.action-btn.about {
+  background: #2b2f55;
+}
+
+.action-btn.admin {
+  background: #3a3a3a;
+}
