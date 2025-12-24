@@ -175,6 +175,16 @@ async function updatePoints(isAdd) {
     .update({ points: newPoints })
     .eq("user_id", userId);
 
+  /* ===== تسجيل المعاملة (الجديد) ===== */
+  await supabase.from("transactions").insert({
+    user_id: userId,
+    type: isAdd ? "admin_add" : "admin_remove",
+    amount: amount,
+    description: isAdd
+      ? "إضافة نقاط من الإدارة"
+      : "خصم نقاط من الإدارة"
+  });
+
   alert("✅ تم تحديث الرصيد");
   loadUsers();
 }
