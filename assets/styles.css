@@ -193,3 +193,36 @@ input{
 .action-btn.admin {
   background: #3a3a3a;
 }
+/* ✨ تأثير لمعة زر الذهب */
+.action-btn.gold {
+  position: relative;
+  overflow: hidden;
+}
+
+.action-btn.gold::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    120deg,
+    transparent,
+    rgba(255,255,255,0.7),
+    transparent
+  );
+  animation: goldShine 2.5s infinite;
+}
+
+@keyframes goldShine {
+  0% {
+    left: -100%;
+  }
+  50% {
+    left: 120%;
+  }
+  100% {
+    left: 120%;
+  }
+}
