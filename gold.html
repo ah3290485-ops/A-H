@@ -14,27 +14,24 @@
     <div class="logo"></div>
     <div>
       <h1>🪙 تداول الذهب</h1>
-      <p class="small" id="goldPriceText">سعر الغرام: تحميل...</p>
-      <p class="small" id="goldPricesSmall" style="opacity:.8">—</p>
+      <p class="small" id="goldPriceText">تحميل السعر...</p>
+      <p class="small" id="goldPricesSmall"></p>
     </div>
   </div>
 
   <!-- الرسم -->
   <div class="card">
-    <h3>📊 رسم الذهب (شموع)</h3>
-    <div style="height:360px">
-      <iframe
-        src="https://s.tradingview.com/widgetembed/?symbol=OANDA:XAUUSD&interval=15&theme=dark&style=1&locale=ar"
-        style="width:100%;height:100%;border:none;border-radius:12px;">
-      </iframe>
-    </div>
+    <iframe
+      src="https://s.tradingview.com/widgetembed/?symbol=OANDA:XAUUSD&interval=15&theme=dark"
+      style="width:100%;height:300px;border:none;border-radius:12px">
+    </iframe>
   </div>
 
   <!-- الرصيد -->
   <div class="card">
     <h3>رصيدك</h3>
-    <div id="balances">تحميل...</div>
-    <div id="pnlBox" class="small" style="margin-top:10px"></div>
+    <div id="balances">...</div>
+    <div id="pnlBox" class="small"></div>
   </div>
 
   <!-- شراء -->
@@ -45,100 +42,28 @@
     <div id="buyHint" class="small"></div>
   </div>
 
-  document.getElementById("sellBtn").onclick = async () => {
-  if (!tradingEnabled) {
-    alert("⛔ التداول متوقف حالياً");
-    return;
-  }
+  <!-- بيع -->
+  <div class="card">
+    <h3>🔴 بيع ذهب</h3>
+    <input id="sellGrams" type="number" step="0.0001" placeholder="عدد الغرامات">
+    <button id="sellBtn" class="btn btn-danger">بيع</button>
+    <div id="sellHint" class="small"></div>
+  </div>
 
-  const gramsToSell = Number(document.getElementById("sellGrams").value);
-  if (!gramsToSell || gramsToSell <= 0) {
-    alert("❌ أدخل عدد غرامات صحيح");
-    return;
-  }
-
-  // تأكد أن السعر جاهز
-  if (!sellPrice || !isFinite(sellPrice)) {
-    alert("❌ سعر الذهب غير متاح حالياً، حاول بعد قليل");
-    return;
-  }
-
-  const pointsBack = Number((gramsToSell * sellPrice).toFixed(6));
-  if (!isFinite(pointsBack) || pointsBack <= 0) {
-    alert("❌ خطأ في حساب قيمة البيع");
-    return;
-  }
-
-  // 🔄 جلب الذهب الحالي
-  const { data: gold } = await supabase
-    .from("gold_wallets")
-    .select("grams")
-    .eq("user_id", user.id)
-    .single();
-
-  if (!gold || Number(gold.grams) < gramsToSell) {
-    alert("❌ رصيد الذهب غير كافي");
-    return;
-  }
-
-  // 🔄 جلب الرصيد الحقيقي (مهم جداً)
-  const { data: wallet } = await supabase
-    .from("wallets")
-    .select("points")
-    .eq("user_id", user.id)
-    .single();
-
-  const currentPoints = Number(wallet?.points || 0);
-  const newPoints = Number((currentPoints + pointsBack).toFixed(6));
-
-  // خصم الذهب
-  await supabase
-    .from("gold_wallets")
-    .update({
-      grams: Number((gold.grams - gramsToSell).toFixed(6))
-    })
-    .eq("user_id", user.id);
-
-  // إضافة النقاط (آمن)
-  await supabase
-    .from("wallets")
-    .update({
-      points: newPoints
-    })
-    .eq("user_id", user.id);
-
-  // سجل العملية
-  await supabase.from("gold_trades").insert({
-    user_id: user.id,
-    type: "sell",
-    grams: gramsToSell,
-    price: sellPrice,
-    points: pointsBack
-  });
-
-  alert("✅ تم بيع الذهب بنجاح");
-
-  document.getElementById("sellGrams").value = "";
-
-  await loadBalances();
-  await loadHistory();
-  await loadPnL();
-};
-
-  <!-- سجل -->
+  <!-- السجل -->
   <div class="card">
     <h3>📜 سجل معاملات الذهب</h3>
-    <div id="history">تحميل...</div>
+    <div id="history">...</div>
   </div>
 
 </div>
 
 <nav class="bottom-nav">
   <div class="nav-wrap">
-    <a class="nav-item" href="dashboard.html">🏠<div>الرئيسية</div></a>
-    <a class="nav-item active" href="gold.html">🪙<div>الذهب</div></a>
-    <a class="nav-item" href="wallet.html">👛<div>محفظتي</div></a>
-    <a class="nav-item" href="profile.html">👤<div>الملف الشخصي</div></a>
+    <a class="nav-item" href="dashboard.html">🏠</a>
+    <a class="nav-item active" href="gold.html">🪙</a>
+    <a class="nav-item" href="wallet.html">👛</a>
+    <a class="nav-item" href="profile.html">👤</a>
   </div>
 </nav>
 
@@ -148,30 +73,23 @@ import { supabase } from "./assets/supabaseClient.js";
 const GOLD_API_KEY = "goldapi-fmnsmjkdy7yt-io";
 const MIN_ACTIVATION = 500;
 
-let basePrice = 135;
-let buyPrice = 135;
-let sellPrice = 135;
+let basePrice = 0;
+let buyPrice = 0;
+let sellPrice = 0;
 
-/* ===== إخفاء الإيميل ===== */
-function maskEmail(email) {
-  if (!email) return "us*****@mail.com";
-  const [n,d] = email.split("@");
-  return n.slice(0,2) + "*****" + n.slice(-1) + "@" + d;
-}
-
-/* ===== تسجيل الدخول ===== */
+/* ===== المستخدم ===== */
 const { data:{user} } = await supabase.auth.getUser();
 if (!user) location.href = "login.html";
 
-/* ===== قفل الذهب ===== */
-const { data:wallet } = await supabase
+/* ===== فحص التفعيل ===== */
+const { data:walletCheck } = await supabase
   .from("wallets")
   .select("points, gold_enabled")
   .eq("user_id", user.id)
   .single();
 
-if (!wallet || (!wallet.gold_enabled && wallet.points < MIN_ACTIVATION)) {
-  document.body.innerHTML = `<h2 style="text-align:center;margin-top:80px">🔒 الذهب مقفل</h2>`;
+if (!walletCheck || (!walletCheck.gold_enabled && walletCheck.points < MIN_ACTIVATION)) {
+  document.body.innerHTML = "<h2 style='text-align:center;margin-top:80px'>🔒 الذهب مقفل</h2>";
   throw new Error("Gold locked");
 }
 
@@ -180,14 +98,15 @@ document.getElementById("app").style.display = "block";
 /* ===== سعر الذهب ===== */
 async function loadPrice(){
   const r = await fetch("https://www.goldapi.io/api/XAU/USD",{
-    headers:{"x-access-token":GOLD_API_KEY}
+    headers:{ "x-access-token": GOLD_API_KEY }
   });
   const d = await r.json();
+
   basePrice = d.price_gram_24k;
-  buyPrice = basePrice * 1.01;
+  buyPrice  = basePrice * 1.01;
   sellPrice = basePrice * 0.99;
 
-  goldPriceText.innerHTML = `سعر الغرام: <b>${basePrice.toFixed(2)}</b>`;
+  goldPriceText.innerHTML = `السعر: <b>${basePrice.toFixed(2)}</b>`;
   goldPricesSmall.innerHTML = `شراء ${buyPrice.toFixed(2)} | بيع ${sellPrice.toFixed(2)}`;
   buyHint.innerText = `كل ${buyPrice.toFixed(2)} نقطة = 1 غ`;
   sellHint.innerText = `1 غ = ${sellPrice.toFixed(2)} نقطة`;
@@ -195,54 +114,83 @@ async function loadPrice(){
 
 /* ===== الأرصدة ===== */
 async function loadBalances(){
-  const { data:w } = await supabase.from("wallets").select("points").eq("user_id",user.id).single();
-  let { data:g } = await supabase.from("gold_wallets").select("grams").eq("user_id",user.id).single();
-  if(!g){
-    await supabase.from("gold_wallets").insert({user_id:user.id,grams:0});
-    g={grams:0};
+  const { data:w } = await supabase
+    .from("wallets")
+    .select("points")
+    .eq("user_id", user.id)
+    .single();
+
+  let { data:g } = await supabase
+    .from("gold_wallets")
+    .select("grams")
+    .eq("user_id", user.id)
+    .single();
+
+  if (!g) {
+    await supabase.from("gold_wallets").insert({ user_id:user.id, grams:0 });
+    g = { grams:0 };
   }
-  balances.innerHTML = `💰 النقاط: ${w.points}<br>🪙 الذهب: ${g.grams.toFixed(4)} غ`;
+
+  balances.innerHTML = `💰 النقاط: ${w.points.toFixed(2)}<br>🪙 الذهب: ${g.grams.toFixed(4)} غ`;
 }
 
 /* ===== شراء ===== */
 buyBtn.onclick = async ()=>{
   const points = Number(buyPoints.value);
+  if (!points || points <= 0) return alert("أدخل نقاط صحيحة");
+
   const grams = points / buyPrice;
-  await supabase.from("wallets").update({points:wallet.points - points}).eq("user_id",user.id);
-  await supabase.from("gold_wallets").update({grams:grams}).eq("user_id",user.id);
-  await supabase.from("gold_trades").insert({user_id:user.id,type:"buy",grams,price:buyPrice,points});
-  await supabase.from("public_activity").insert({
-    user_id:user.id,
-    email:maskEmail(user.email),
-    action:"شراء ذهب",
-    amount:grams
+
+  const { data:w } = await supabase.from("wallets").select("points").eq("user_id",user.id).single();
+  const { data:g } = await supabase.from("gold_wallets").select("grams").eq("user_id",user.id).single();
+
+  if (w.points < points) return alert("الرصيد غير كافي");
+
+  await supabase.from("wallets").update({ points: w.points - points }).eq("user_id",user.id);
+  await supabase.from("gold_wallets").update({ grams: g.grams + grams }).eq("user_id",user.id);
+
+  await supabase.from("gold_trades").insert({
+    user_id:user.id, type:"buy", grams, price:buyPrice, points
   });
-  alert("تم الشراء");
+
   loadBalances(); loadHistory();
 };
 
 /* ===== بيع ===== */
 sellBtn.onclick = async ()=>{
   const grams = Number(sellGrams.value);
+  if (!grams || grams <= 0) return alert("أدخل غرامات صحيحة");
+
   const points = grams * sellPrice;
-  await supabase.from("gold_wallets").update({grams:0}).eq("user_id",user.id);
-  await supabase.from("wallets").update({points:wallet.points + points}).eq("user_id",user.id);
-  await supabase.from("gold_trades").insert({user_id:user.id,type:"sell",grams,price:sellPrice,points});
-  await supabase.from("public_activity").insert({
-    user_id:user.id,
-    email:maskEmail(user.email),
-    action:"بيع ذهب",
-    amount:grams
+
+  const { data:w } = await supabase.from("wallets").select("points").eq("user_id",user.id).single();
+  const { data:g } = await supabase.from("gold_wallets").select("grams").eq("user_id",user.id).single();
+
+  if (g.grams < grams) return alert("رصيد الذهب غير كافي");
+
+  await supabase.from("gold_wallets").update({ grams: g.grams - grams }).eq("user_id",user.id);
+  await supabase.from("wallets").update({ points: w.points + points }).eq("user_id",user.id);
+
+  await supabase.from("gold_trades").insert({
+    user_id:user.id, type:"sell", grams, price:sellPrice, points
   });
-  alert("تم البيع");
+
   loadBalances(); loadHistory();
 };
 
 /* ===== السجل ===== */
 async function loadHistory(){
-  const { data } = await supabase.from("gold_trades").select("*").eq("user_id",user.id).order("created_at",{ascending:false});
+  const { data } = await supabase
+    .from("gold_trades")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at",{ascending:false});
+
   history.innerHTML = data.map(t=>`
-    <div>${t.type==="buy"?"🟢":"🔴"} ${t.grams.toFixed(4)} غ — ${t.points} نقطة</div>
+    <div class="small">
+      ${t.type==="buy"?"🟢":"🔴"} ${t.grams.toFixed(4)} غ —
+      ${t.points.toFixed(2)} نقطة
+    </div>
   `).join("");
 }
 
@@ -251,5 +199,6 @@ await loadBalances();
 await loadHistory();
 setInterval(loadPrice,10000);
 </script>
+
 </body>
 </html>
