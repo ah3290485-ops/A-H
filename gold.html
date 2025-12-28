@@ -45,13 +45,85 @@
     <div id="buyHint" class="small"></div>
   </div>
 
-  <!-- بيع -->
-  <div class="card">
-    <h3>🔴 بيع ذهب</h3>
-    <input id="sellGrams" type="number" step="0.01" placeholder="عدد الغرامات">
-    <button id="sellBtn" class="btn btn-danger">بيع</button>
-    <div id="sellHint" class="small"></div>
-  </div>
+  document.getElementById("sellBtn").onclick = async () => {
+  if (!tradingEnabled) {
+    alert("⛔ التداول متوقف حالياً");
+    return;
+  }
+
+  const gramsToSell = Number(document.getElementById("sellGrams").value);
+  if (!gramsToSell || gramsToSell <= 0) {
+    alert("❌ أدخل عدد غرامات صحيح");
+    return;
+  }
+
+  // تأكد أن السعر جاهز
+  if (!sellPrice || !isFinite(sellPrice)) {
+    alert("❌ سعر الذهب غير متاح حالياً، حاول بعد قليل");
+    return;
+  }
+
+  const pointsBack = Number((gramsToSell * sellPrice).toFixed(6));
+  if (!isFinite(pointsBack) || pointsBack <= 0) {
+    alert("❌ خطأ في حساب قيمة البيع");
+    return;
+  }
+
+  // 🔄 جلب الذهب الحالي
+  const { data: gold } = await supabase
+    .from("gold_wallets")
+    .select("grams")
+    .eq("user_id", user.id)
+    .single();
+
+  if (!gold || Number(gold.grams) < gramsToSell) {
+    alert("❌ رصيد الذهب غير كافي");
+    return;
+  }
+
+  // 🔄 جلب الرصيد الحقيقي (مهم جداً)
+  const { data: wallet } = await supabase
+    .from("wallets")
+    .select("points")
+    .eq("user_id", user.id)
+    .single();
+
+  const currentPoints = Number(wallet?.points || 0);
+  const newPoints = Number((currentPoints + pointsBack).toFixed(6));
+
+  // خصم الذهب
+  await supabase
+    .from("gold_wallets")
+    .update({
+      grams: Number((gold.grams - gramsToSell).toFixed(6))
+    })
+    .eq("user_id", user.id);
+
+  // إضافة النقاط (آمن)
+  await supabase
+    .from("wallets")
+    .update({
+      points: newPoints
+    })
+    .eq("user_id", user.id);
+
+  // سجل العملية
+  await supabase.from("gold_trades").insert({
+    user_id: user.id,
+    type: "sell",
+    grams: gramsToSell,
+    price: sellPrice,
+    points: pointsBack
+  });
+
+  alert("✅ تم بيع الذهب بنجاح");
+
+  document.getElementById("sellGrams").value = "";
+
+  await loadBalances();
+  await loadHistory();
+  await loadPnL();
+};
 
   <!-- سجل -->
   <div class="card">
